@@ -76,12 +76,38 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
   if (!apiKey) throw new Error("API Key missing");
 
   const ai = new GoogleGenAI({ apiKey });
-
-  // Error container to re-throw if all attempts fail
   let lastError: any;
 
-  // --- ATTEMPT 1: Imagen 3 (High Quality) ---
-  // We prioritize Imagen because it's the dedicated image model.
+  // STRATEGY: Reliability First (Free Tier Friendly)
+  // We prioritize 'gemini-2.5-flash-image' because it has much higher free quotas than Imagen.
+  // This solves the '429 Quota Exceeded' error for most users.
+
+  // --- ATTEMPT 1: Gemini 2.5 Flash Image ---
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-image",
+      contents: {
+        parts: [
+          { 
+            text: `Generate a high-quality children's book illustration. Style: Warm digital oil painting, golden lighting, magical atmosphere. Scene: ${imagePrompt}` 
+          }
+        ],
+      },
+    });
+
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData && part.inlineData.data) {
+          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Gemini Flash Image failed, trying fallback...", e);
+    lastError = e;
+  }
+
+  // --- ATTEMPT 2: Imagen 3 (High Quality, Lower Quota) ---
   try {
     const response = await ai.models.generateImages({
       model: "imagen-3.0-generate-001",
@@ -98,41 +124,16 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
         return `data:image/jpeg;base64,${base64Image}`;
     }
   } catch (e) {
-    console.warn("Imagen 3 failed, trying fallback...", e);
+    console.warn("Imagen 3 failed...", e);
+    // If the first error was a 429, it's likely the second is too if they share quotas, 
+    // but usually Flash is more lenient. We'll store this error too.
     lastError = e;
   }
 
-  // --- ATTEMPT 2: Gemini 2.5 Flash Image (Reliability Fallback) ---
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: {
-        parts: [
-          { 
-            text: `Generate a photorealistic illustration for a children's book. Style: Warm digital oil painting. Scene: ${imagePrompt}` 
-          }
-        ],
-      },
-    });
-
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData && part.inlineData.data) {
-          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("Gemini Flash Image failed...", e);
-    // If this fails too, we throw the error to the UI so we can see the '403' or restriction message.
-    lastError = e;
-  }
-
-  // If we reached here, both failed. Throw the error to be caught by the component.
+  // If both failed, throw the error to be displayed in the UI.
   throw lastError || new Error("Image generation failed");
 };
 
-// Exported so the UI can use it when it catches an error
 export const getFallbackImage = () => {
     const fallbacks = [
         "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000&auto=format&fit=crop", // Gold sunset
