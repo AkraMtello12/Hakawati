@@ -9,13 +9,21 @@ The style should be 'Neo-Heritage' - mixing traditional wisdom with modern clari
 Ensure the content is absolutely safe, positive, and educational.
 `;
 
-// Safety settings to prevent blocking safe content
+// Safety settings
 const SAFETY_SETTINGS = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
   { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
   { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
 ];
+
+const MORAL_IMAGES: Record<string, string> = {
+  kindness: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?q=80&w=1000&auto=format&fit=crop", 
+  honesty: "https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?q=80&w=1000&auto=format&fit=crop", 
+  saving: "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?q=80&w=1000&auto=format&fit=crop", 
+  friendship: "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?q=80&w=1000&auto=format&fit=crop", 
+  optimism: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=1000&auto=format&fit=crop", 
+};
 
 export const generateStoryText = async (params: StoryParams): Promise<GeneratedStory> => {
   const apiKey = process.env.API_KEY;
@@ -24,27 +32,35 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
   const ai = new GoogleGenAI({ apiKey });
 
   const dialectInstruction = params.dialect === StoryDialect.SYRIAN
-    ? "Write the dialogue and narration in a warm, polite Damascus Syrian dialect (Shami)."
-    : "Write in simple, accessible Modern Standard Arabic (Fusha).";
+    ? "Write the dialogue and narration in a warm, polite Damascus Syrian dialect (Shami). Use some traditional words."
+    : "Write in simple, accessible Modern Standard Arabic (Fusha). Use some rich vocabulary.";
 
   const moralInstruction = params.moral 
     ? `The moral of the story revolves around: ${params.moral}.` 
-    : "Choose a suitable positive moral for a child (e.g., honesty, kindness, or curiosity) and build the story around it.";
+    : "Choose a suitable positive moral for a child.";
+
+  const genderInstruction = params.gender === 'girl' 
+    ? "The main character is a little girl. Use feminine pronouns (هي/لها)."
+    : "The main character is a little boy. Use masculine pronouns (هو/له).";
 
   const prompt = `
     Create a children's story for ${params.childName}, who is ${params.age} years old.
+    ${genderInstruction}
     ${moralInstruction}
     ${dialectInstruction}
     
-    Structure the story into exactly 4 pages (scenes).
+    Structure:
+    1. **Story**: Exactly 4 pages (scenes).
+    2. **Magic Dictionary**: Identify 3-4 difficult or dialect-heavy words used in the text. Provide their simplified definition in Arabic.
+    3. **Moral Choice**: Create a scenario based on the story where the child must make a decision. This should happen conceptually in the middle of the story. Provide 2 options: one correct (leading to the moral) and one incorrect (but understandable mistake).
+    4. **Moral Name**: A short 1-2 word title for the badge (e.g., "الصدق", "الأمانة", "مساعدة الغير").
+
     For each page, provide the story text and a simplified English description for an illustration (image_prompt).
-    The image prompt must be simple, safe, and describe a scene suitable for a children's book.
-    Avoid complex details in the image prompt to ensure better generation with lightweight models.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // Free Tier Friendly Text Model
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -54,6 +70,7 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
           type: Type.OBJECT,
           properties: {
             title: { type: Type.STRING },
+            moralName: { type: Type.STRING, description: "Short Arabic name of the moral for the badge" },
             pages: {
               type: Type.ARRAY,
               items: {
@@ -64,9 +81,39 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
                 },
                 required: ["text", "imagePrompt"]
               }
+            },
+            dictionary: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        word: { type: Type.STRING, description: "The exact word as it appears in the text" },
+                        definition: { type: Type.STRING, description: "Simple definition in Arabic" }
+                    },
+                    required: ["word", "definition"]
+                }
+            },
+            question: {
+                type: Type.OBJECT,
+                properties: {
+                    text: { type: Type.STRING, description: "The question asking what the character should do" },
+                    options: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                text: { type: Type.STRING, description: "The action to take" },
+                                isCorrect: { type: Type.BOOLEAN },
+                                feedback: { type: Type.STRING, description: "Short feedback message explaining why this is right or wrong" }
+                            },
+                            required: ["text", "isCorrect", "feedback"]
+                        }
+                    }
+                },
+                required: ["text", "options"]
             }
           },
-          required: ["title", "pages"]
+          required: ["title", "pages", "dictionary", "question", "moralName"]
         }
       }
     });
@@ -74,67 +121,42 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
     const text = response.text;
     if (!text) throw new Error("No response from AI");
     
-    return JSON.parse(text) as GeneratedStory;
+    const storyData = JSON.parse(text) as GeneratedStory;
+    storyData.moralId = params.moralId; 
+    
+    return storyData;
   } catch (error) {
     console.error("Error generating story:", error);
     throw error;
   }
 };
 
-export const generateSceneImage = async (imagePrompt: string): Promise<string> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API Key missing");
+export const generateSceneImage = async (imagePrompt: string, moralId?: string): Promise<string> => {
+  await new Promise(resolve => setTimeout(resolve, 300));
 
-  const ai = new GoogleGenAI({ apiKey });
-
-  // STRICTLY FREE TIER MODEL: gemini-2.5-flash-image
-  // This model is part of the experimental/preview tier and usually has free quota.
-  // We avoid 'pro' models completely.
-  
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: {
-        parts: [
-          { 
-            text: `Children's book illustration, oil painting style, warm colors. Scene: ${imagePrompt}` 
-          }
-        ],
-      },
-      config: {
-        safetySettings: SAFETY_SETTINGS,
-        // responseMimeType is not supported for this model, so we don't set it.
-      }
-    });
-
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData && part.inlineData.data) {
-          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        }
-      }
-    }
-    
-    throw new Error("No image data returned from Gemini Flash");
-
-  } catch (e) {
-    console.warn("Gemini Flash Image Generation Failed (likely rate limit or region block). Using fallback.", e);
-    throw e; // We throw so the UI can catch and show the fallback
+  if (moralId && MORAL_IMAGES[moralId]) {
+    return MORAL_IMAGES[moralId];
   }
-};
 
-export const getFallbackImage = (index: number) => {
-    // A collection of safe, beautiful, abstract storytelling backgrounds from Unsplash
-    // Used when the API quota is hit or fails.
-    const fallbacks = [
-        "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000&auto=format&fit=crop", // Gold sunset
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000&auto=format&fit=crop", // Beach
-        "https://images.unsplash.com/photo-1448375240586-dfd8f3793371?q=80&w=1000&auto=format&fit=crop", // Forest
-        "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1000&auto=format&fit=crop", // Mountains / Stars
-        "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?q=80&w=1000&auto=format&fit=crop", // Night Sky
-    ];
-    // Return a consistent image based on the page index to avoid flickering
-    return fallbacks[index % fallbacks.length];
+  const p = imagePrompt.toLowerCase();
+  
+  if (p.includes('forest') || p.includes('tree') || p.includes('garden')) {
+     return "https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1000&auto=format&fit=crop"; 
+  }
+  if (p.includes('sky') || p.includes('star') || p.includes('moon') || p.includes('night')) {
+     return "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?q=80&w=1000&auto=format&fit=crop"; 
+  }
+  if (p.includes('room') || p.includes('home') || p.includes('bed')) {
+     return "https://images.unsplash.com/photo-1540518614846-7eded433c457?q=80&w=1000&auto=format&fit=crop"; 
+  }
+  if (p.includes('sea') || p.includes('water')) {
+     return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000&auto=format&fit=crop"; 
+  }
+  if (p.includes('desert') || p.includes('sand')) {
+     return "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=1000&auto=format&fit=crop"; 
+  }
+  
+  return "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000&auto=format&fit=crop";
 };
 
 export const generateSpeech = async (text: string): Promise<string> => {

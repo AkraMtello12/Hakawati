@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Sparkles, Heart, Lightbulb, Droplets, Smile, Volume2, ScrollText, Edit3 } from 'lucide-react';
-import { StoryParams, StoryDialect } from '../types';
+import { User, Sparkles, Heart, Lightbulb, Droplets, Smile, Volume2, ScrollText, Edit3, Users } from 'lucide-react';
+import { StoryParams, StoryDialect, Gender } from '../types';
 
 interface StoryEngineProps {
   onSubmit: (params: StoryParams) => void;
@@ -9,8 +9,10 @@ interface StoryEngineProps {
 
 const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
   const [name, setName] = useState('');
+  const [gender, setGender] = useState<Gender>('boy');
   const [age, setAge] = useState(6);
-  const [moral, setMoral] = useState('');
+  const [selectedMoralId, setSelectedMoralId] = useState<string>(''); 
+  const [moralPrompt, setMoralPrompt] = useState(''); 
   const [customMoral, setCustomMoral] = useState('');
   const [dialect, setDialect] = useState<StoryDialect>(StoryDialect.SYRIAN);
 
@@ -18,30 +20,37 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
     { id: 'kindness', label: 'اللطف', icon: Heart, prompt: 'kindness and compassion' },
     { id: 'honesty', label: 'الصدق', icon: Lightbulb, prompt: 'honesty and truth' },
     { id: 'saving', label: 'التوفير', icon: Droplets, prompt: 'saving resources' },
-    { id: 'friendship', label: 'الصداقة', icon: User, prompt: 'friendship and loyalty' },
+    { id: 'friendship', label: 'الصداقة', icon: Users, prompt: 'friendship and loyalty' },
     { id: 'optimism', label: 'التفاؤل', icon: Smile, prompt: 'hope and optimism' },
   ];
 
-  const handleMoralSelect = (prompt: string) => {
-    if (moral === prompt) {
-      setMoral(''); // Deselect
+  const handleMoralSelect = (id: string, prompt: string) => {
+    if (selectedMoralId === id) {
+      setSelectedMoralId('');
+      setMoralPrompt('');
     } else {
-      setMoral(prompt);
-      setCustomMoral(''); // Clear custom if selecting preset
+      setSelectedMoralId(id);
+      setMoralPrompt(prompt);
+      setCustomMoral(''); 
     }
   };
 
   const handleCustomMoralChange = (val: string) => {
     setCustomMoral(val);
-    if (val) setMoral(''); // Clear preset if typing custom
+    if (val) {
+        setSelectedMoralId(''); 
+        setMoralPrompt('');
+    }
   };
 
   const handleSubmit = () => {
     if (name.trim()) {
       onSubmit({
         childName: name,
+        gender,
         age,
-        moral: customMoral || moral, // Use custom if available, else selected, else empty (AI decides)
+        moral: customMoral || moralPrompt, 
+        moralId: selectedMoralId || undefined, 
         dialect
       });
     }
@@ -68,19 +77,37 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
 
             <div className="p-8 md:p-12 space-y-10">
                 
-                {/* 1. Name Input */}
+                {/* 1. Name & Gender Input */}
                 <div className="space-y-4">
                     <label className="text-xl font-serif text-h-night block">من هو بطل الحكاية؟</label>
-                    <div className="relative">
-                        <input 
-                            type="text" 
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="اكتب اسم طفلك هنا..."
-                            className="w-full bg-white border-2 border-gray-200 rounded-2xl px-6 py-4 text-xl focus:outline-none focus:border-h-gold focus:ring-4 focus:ring-h-gold/10 transition-all text-right"
-                        />
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-h-gold">
-                            <User />
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="relative flex-1">
+                            <input 
+                                type="text" 
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="اكتب اسم طفلك هنا..."
+                                className="w-full bg-white border-2 border-gray-200 rounded-2xl px-6 py-4 text-xl focus:outline-none focus:border-h-gold focus:ring-4 focus:ring-h-gold/10 transition-all text-right"
+                            />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-h-gold">
+                                <User />
+                            </div>
+                        </div>
+                        
+                        {/* Gender Toggle */}
+                        <div className="flex bg-white rounded-2xl p-1 border-2 border-gray-200 w-full md:w-auto shrink-0">
+                             <button
+                                onClick={() => setGender('boy')}
+                                className={`flex-1 md:flex-none px-6 py-3 rounded-xl font-serif text-lg transition-all flex items-center justify-center gap-2 ${gender === 'boy' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                             >
+                                👦 ولد
+                             </button>
+                             <button
+                                onClick={() => setGender('girl')}
+                                className={`flex-1 md:flex-none px-6 py-3 rounded-xl font-serif text-lg transition-all flex items-center justify-center gap-2 ${gender === 'girl' ? 'bg-pink-100 text-pink-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                             >
+                                👧 بنت
+                             </button>
                         </div>
                     </div>
                 </div>
@@ -116,12 +143,12 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                         {morals.map((m) => {
                             const Icon = m.icon;
-                            const isSelected = moral === m.prompt;
+                            const isSelected = selectedMoralId === m.id;
                             return (
                                 <motion.button
                                     key={m.id}
                                     whileTap={{ scale: 0.95 }}
-                                    onClick={() => handleMoralSelect(m.prompt)}
+                                    onClick={() => handleMoralSelect(m.id, m.prompt)}
                                     className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${
                                         isSelected 
                                         ? 'bg-h-gold text-white border-h-gold shadow-lg shadow-h-gold/30' 
