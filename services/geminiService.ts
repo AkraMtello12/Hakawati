@@ -77,47 +77,62 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
 
   const ai = new GoogleGenAI({ apiKey });
 
-  // Strategy: Try Imagen 3 (High Quality) first, fallback to Gemini 2.5 Flash Image (Speed/Free Tier)
+  // Strategy: 
+  // 1. Try 'gemini-2.5-flash-image' FIRST (Standard, widely available, fast).
+  // 2. Fallback to 'imagen-3.0-generate-001' (Higher quality but sometimes restricted/gated).
+  
   try {
-    const response = await ai.models.generateImages({
-      model: "imagen-3.0-generate-001",
-      prompt: `Children's book illustration, warm style, digital art, magical atmosphere. Scene: ${imagePrompt}`,
-      config: {
-        numberOfImages: 1,
-        aspectRatio: "16:9",
-        outputMimeType: "image/jpeg"
-      }
+    // Attempt 1: Gemini 2.5 Flash Image
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-image",
+      contents: {
+        parts: [
+          { 
+            text: `Generate a children's book illustration. Style: Warm digital oil painting, magical, golden lighting. Scene: ${imagePrompt}` 
+          }
+        ],
+      },
+      // Note: Do NOT set responseMimeType for image generation models like 2.5-flash-image
     });
 
-    const base64Image = response.generatedImages?.[0]?.image?.imageBytes;
-    if (base64Image) {
-        return `data:image/jpeg;base64,${base64Image}`;
+    // Iterate through parts to find the image (it might not be the first part)
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData && part.inlineData.data) {
+          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
     }
-    throw new Error("No image returned from Imagen");
+    
+    // If no image found in response parts, throw to trigger fallback
+    throw new Error("No inline image data in Gemini Flash response");
 
-  } catch (error) {
-    console.warn("Imagen generation failed, falling back to Gemini Flash Image:", error);
+  } catch (flashError) {
+    console.warn("Gemini Flash Image failed, falling back to Imagen:", flashError);
     
     try {
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash-image",
-          contents: `Generate an image. Illustration for a children's book. Style: Warm, soft lighting, digital art. Scene: ${imagePrompt}`,
+        // Attempt 2: Imagen 3 (Fallback)
+        const response = await ai.models.generateImages({
+            model: "imagen-3.0-generate-001",
+            prompt: `Children's book illustration, warm style, digital art, magical atmosphere. Scene: ${imagePrompt}`,
+            config: {
+                numberOfImages: 1,
+                aspectRatio: "16:9",
+                outputMimeType: "image/jpeg"
+            }
         });
 
-        const candidates = response.candidates;
-        if (candidates && candidates[0] && candidates[0].content && candidates[0].content.parts) {
-            for(const part of candidates[0].content.parts) {
-                if (part.inlineData && part.inlineData.data) {
-                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                }
-            }
+        const base64Image = response.generatedImages?.[0]?.image?.imageBytes;
+        if (base64Image) {
+            return `data:image/jpeg;base64,${base64Image}`;
         }
-    } catch (fallbackError) {
-        console.error("All image generation attempts failed:", fallbackError);
+        throw new Error("No image returned from Imagen fallback");
+
+    } catch (finalError) {
+        console.error("All image generation attempts failed:", finalError);
+        // Final fallback placeholder
+        return "https://picsum.photos/1024/1024?grayscale&blur=2";
     }
-    
-    // Final fallback
-    return "https://picsum.photos/1024/1024?grayscale";
   }
 };
 
