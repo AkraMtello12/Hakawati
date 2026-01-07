@@ -77,29 +77,46 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
 
   const ai = new GoogleGenAI({ apiKey });
 
+  // Strategy: Try Imagen 3 (High Quality) first, fallback to Gemini 2.5 Flash Image (Speed/Free Tier)
   try {
-    // Using gemini-2.5-flash-image for speed and efficiency as per instructions
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: `Illustration for a children's book. Style: Warm, soft lighting, digital art, distinct colors. Scene: ${imagePrompt}`,
+    const response = await ai.models.generateImages({
+      model: "imagen-3.0-generate-001",
+      prompt: `Children's book illustration, warm style, digital art, magical atmosphere. Scene: ${imagePrompt}`,
+      config: {
+        numberOfImages: 1,
+        aspectRatio: "16:9",
+        outputMimeType: "image/jpeg"
+      }
     });
 
-    // Check for inline data (generated image)
-    const candidates = response.candidates;
-    if (candidates && candidates[0] && candidates[0].content && candidates[0].content.parts) {
-        for(const part of candidates[0].content.parts) {
-            if (part.inlineData && part.inlineData.data) {
-                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            }
-        }
+    const base64Image = response.generatedImages?.[0]?.image?.imageBytes;
+    if (base64Image) {
+        return `data:image/jpeg;base64,${base64Image}`;
     }
-    
-    // Fallback if no image generated (should rarely happen with correct model)
-    return "https://picsum.photos/1024/1024?blur=2";
+    throw new Error("No image returned from Imagen");
 
   } catch (error) {
-    console.error("Error generating image:", error);
-    // Fallback placeholder on error
+    console.warn("Imagen generation failed, falling back to Gemini Flash Image:", error);
+    
+    try {
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash-image",
+          contents: `Generate an image. Illustration for a children's book. Style: Warm, soft lighting, digital art. Scene: ${imagePrompt}`,
+        });
+
+        const candidates = response.candidates;
+        if (candidates && candidates[0] && candidates[0].content && candidates[0].content.parts) {
+            for(const part of candidates[0].content.parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                }
+            }
+        }
+    } catch (fallbackError) {
+        console.error("All image generation attempts failed:", fallbackError);
+    }
+    
+    // Final fallback
     return "https://picsum.photos/1024/1024?grayscale";
   }
 };
