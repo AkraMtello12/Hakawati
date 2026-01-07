@@ -77,17 +77,16 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
 
   const ai = new GoogleGenAI({ apiKey });
 
-  // STRATEGY: Gemini 2.5 Flash Image Only
-  // We removed Imagen because it causes 404 errors for many keys.
-  // If this fails (e.g. 429 Quota), the UI will handle the error and show a fallback.
-
+  // FORCE FREE TIER MODEL ONLY
+  // We use 'gemini-2.5-flash-image' specifically because it has the most generous free tier limits.
+  // We strictly avoid 'pro' or 'imagen' models to prevent 429/404 errors on free accounts.
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
       contents: {
         parts: [
           { 
-            text: `Generate a high-quality children's book illustration. Style: Warm digital oil painting, golden lighting, magical atmosphere. Scene: ${imagePrompt}` 
+            text: `Illustration for children's book. Style: Warm digital oil painting, vibrant colors. Scene: ${imagePrompt}` 
           }
         ],
       },
@@ -101,11 +100,11 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
       }
     }
     
-    throw new Error("No image data found in response");
+    throw new Error("No image data returned from Gemini Flash");
 
   } catch (e) {
-    console.warn("Gemini Flash Image failed:", e);
-    throw e; // Throw the original error (likely 429) so UI can display it correctly
+    console.error("Gemini Flash Image Generation Failed:", e);
+    throw e;
   }
 };
 

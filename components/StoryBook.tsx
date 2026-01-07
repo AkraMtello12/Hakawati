@@ -119,6 +119,7 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
       if (!images[currentPage] && story.pages[currentPage]) {
         setLoadingImage(true);
         setImageError(null);
+        setImageError(null); // Reset error before trying
         try {
           const imgUrl = await generateSceneImage(story.pages[currentPage].imagePrompt);
           setImages(prev => {
@@ -155,10 +156,10 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
   };
 
   const getErrorMessage = (err: string) => {
-    if (err.includes("429")) return "نفذ الرصيد المجاني للصور (Quota Exceeded). تم استخدام صورة بديلة.";
-    if (err.includes("404")) return "نموذج الصور غير متوفر حالياً. تم استخدام صورة بديلة.";
-    if (err.includes("503") || err.includes("500")) return "الخادم مشغول حالياً. تم استخدام صورة بديلة.";
-    return "حدث خطأ في توليد الصورة. تم استخدام صورة بديلة.";
+    if (err.includes("429")) return "تجاوزت حد الاستخدام المجاني (Quota). يجب ربط الفوترة (Billing) في Google Cloud لاستخدام النماذج القوية.";
+    if (err.includes("403")) return "المفتاح محظور أو الموقع الجغرافي غير مدعوم.";
+    if (err.includes("404")) return "النموذج المطلوب غير متوفر لهذا المفتاح.";
+    return "حدث خطأ تقني أثناء التوليد. تم عرض صورة بديلة.";
   };
 
   return (
@@ -267,15 +268,15 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
                              {showErrorDetails && imageError && (
                                 <div className="absolute top-12 right-2 left-2 bg-white/95 backdrop-blur p-4 rounded-xl shadow-2xl border-2 border-yellow-100 z-20 text-right dir-rtl">
                                     <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-bold text-yellow-600 text-sm">ملاحظة</h4>
+                                        <h4 className="font-bold text-yellow-600 text-sm">ملاحظة تقنية</h4>
                                         <button onClick={() => setShowErrorDetails(false)} className="text-gray-400"><XCircle size={16} /></button>
                                     </div>
-                                    <p className="text-sm text-gray-700 font-sans mb-2">
+                                    <p className="text-sm text-gray-700 font-sans mb-2 leading-relaxed">
                                         {getErrorMessage(imageError)}
                                     </p>
-                                    <p className="text-xs text-gray-400 font-mono">
-                                        Technical: {imageError.slice(0, 50)}...
-                                    </p>
+                                    <div className="text-xs text-gray-400 font-mono bg-gray-50 p-2 rounded dir-ltr text-left overflow-hidden text-ellipsis">
+                                        {imageError.slice(0, 100)}...
+                                    </div>
                                 </div>
                             )}
                         </div>
