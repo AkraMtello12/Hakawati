@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2, AlertTriangle, XCircle } from 'lucide-react';
 import { GeneratedStory } from '../types';
-import { generateSceneImage, generateSpeech } from '../services/geminiService';
+import { generateSceneImage, generateSpeech, getFallbackImage } from '../services/geminiService';
 
 interface StoryBookProps {
   story: GeneratedStory;
@@ -13,6 +13,8 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [images, setImages] = useState<string[]>(new Array(story.pages.length).fill(''));
   const [loadingImage, setLoadingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   
   // Audio states
   const [isPlaying, setIsPlaying] = useState(false);
@@ -67,11 +69,6 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
       // 3. Decode
       const arrayBuffer = decodeBase64(base64Audio);
       
-      // We need to decode the raw PCM data manually as per Gemini docs or use decodeAudioData if it supports the format.
-      // Gemini returns raw PCM 16-bit little-endian mono 24kHz.
-      // Standard decodeAudioData often expects headers (wav/mp3). 
-      // Let's try manual PCM decoding first as per documentation instructions for raw PCM.
-      
       const dataInt16 = new Int16Array(arrayBuffer);
       const float32Data = new Float32Array(dataInt16.length);
       for (let i = 0; i < dataInt16.length; i++) {
@@ -102,6 +99,8 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
   // Stop audio when changing pages
   useEffect(() => {
     stopAudio();
+    setImageError(null); // Reset error on page change
+    setShowErrorDetails(false);
   }, [currentPage]);
 
   // Clean up audio on unmount
@@ -119,6 +118,7 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
     const loadImage = async () => {
       if (!images[currentPage] && story.pages[currentPage]) {
         setLoadingImage(true);
+        setImageError(null);
         try {
           const imgUrl = await generateSceneImage(story.pages[currentPage].imagePrompt);
           setImages(prev => {
@@ -126,8 +126,17 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
             newImages[currentPage] = imgUrl;
             return newImages;
           });
-        } catch (e) {
+        } catch (e: any) {
           console.error("Failed to load image", e);
+          // Set Fallback Image
+          setImages(prev => {
+            const newImages = [...prev];
+            newImages[currentPage] = getFallbackImage();
+            return newImages;
+          });
+          // Capture error for debugging
+          const msg = e?.message || JSON.stringify(e);
+          setImageError(msg);
         } finally {
           setLoadingImage(false);
         }
@@ -208,7 +217,7 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
 
         {/* Left Page (Image) */}
         <div className="flex-1 p-4 md:p-8 bg-[#f5f5f0] flex items-center justify-center relative overflow-hidden">
-            <div className="w-full h-full border-4 border-dashed border-[#d4af37]/30 rounded-2xl flex items-center justify-center bg-white shadow-inner overflow-hidden relative">
+            <div className="w-full h-full border-4 border-dashed border-[#d4af37]/30 rounded-2xl flex items-center justify-center bg-white shadow-inner overflow-hidden relative group">
                 <AnimatePresence mode='wait'>
                     {loadingImage ? (
                          <motion.div 
@@ -222,15 +231,47 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
                              <span className="text-gray-400 font-serif">جاري رسم المشهد...</span>
                          </motion.div>
                     ) : (
-                        <motion.img
-                            key={`img-${currentPage}`}
-                            src={images[currentPage]}
-                            alt="Story Scene"
-                            initial={{ scale: 1.1, opacity: 0, filter: 'blur(10px)' }}
-                            animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-                            transition={{ duration: 0.8 }}
-                            className="w-full h-full object-cover"
-                        />
+                        <div className="relative w-full h-full">
+                            <motion.img
+                                key={`img-${currentPage}`}
+                                src={images[currentPage]}
+                                alt="Story Scene"
+                                initial={{ scale: 1.1, opacity: 0, filter: 'blur(10px)' }}
+                                animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
+                                transition={{ duration: 0.8 }}
+                                className="w-full h-full object-cover rounded-xl"
+                            />
+                            
+                            {/* Error Indicator (Only if failed) */}
+                            {imageError && (
+                                <div className="absolute top-2 right-2">
+                                    <button 
+                                        onClick={() => setShowErrorDetails(!showErrorDetails)}
+                                        className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                                        title="فشل توليد الصورة"
+                                    >
+                                        <AlertTriangle size={20} />
+                                    </button>
+                                </div>
+                            )}
+
+                             {/* Error Popup */}
+                             {showErrorDetails && imageError && (
+                                <div className="absolute top-12 right-2 left-2 bg-white p-4 rounded-xl shadow-2xl border-2 border-red-100 z-20 text-right dir-rtl">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-bold text-red-600 text-sm">خطأ في الـ API</h4>
+                                        <button onClick={() => setShowErrorDetails(false)} className="text-gray-400"><XCircle size={16} /></button>
+                                    </div>
+                                    <p className="text-xs text-gray-600 font-mono break-all bg-gray-50 p-2 rounded mb-2">
+                                        {imageError.slice(0, 150)}...
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        تأكد من إعدادات المفتاح في Google Cloud Console. <br/>
+                                        اقتراح: جرب إيقاف "API Restrictions" مؤقتاً.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </AnimatePresence>
                 

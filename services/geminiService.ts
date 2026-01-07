@@ -73,30 +73,46 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
 
 export const generateSceneImage = async (imagePrompt: string): Promise<string> => {
   const apiKey = process.env.API_KEY;
-  // If key is missing, return a nice placeholder immediately
-  if (!apiKey) {
-      console.warn("API Key missing for image generation");
-      return getFallbackImage();
-  }
+  if (!apiKey) throw new Error("API Key missing");
 
   const ai = new GoogleGenAI({ apiKey });
 
-  // --- STRATEGY: Reliability First ---
-  // We prioritize 'gemini-2.5-flash-image' because it shares the same permissions as the text model.
-  // If text works, this will work.
+  // Error container to re-throw if all attempts fail
+  let lastError: any;
 
+  // --- ATTEMPT 1: Imagen 3 (High Quality) ---
+  // We prioritize Imagen because it's the dedicated image model.
   try {
-    // Attempt 1: Gemini 2.5 Flash Image (Most Reliable)
+    const response = await ai.models.generateImages({
+      model: "imagen-3.0-generate-001",
+      prompt: `Children's book illustration, warm style, digital art, magical atmosphere. Scene: ${imagePrompt}`,
+      config: {
+        numberOfImages: 1,
+        aspectRatio: "16:9",
+        outputMimeType: "image/jpeg"
+      }
+    });
+
+    const base64Image = response.generatedImages?.[0]?.image?.imageBytes;
+    if (base64Image) {
+        return `data:image/jpeg;base64,${base64Image}`;
+    }
+  } catch (e) {
+    console.warn("Imagen 3 failed, trying fallback...", e);
+    lastError = e;
+  }
+
+  // --- ATTEMPT 2: Gemini 2.5 Flash Image (Reliability Fallback) ---
+  try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
       contents: {
         parts: [
           { 
-            text: `Generate a children's book illustration. Style: Warm digital oil painting, magical, golden lighting. Scene: ${imagePrompt}` 
+            text: `Generate a photorealistic illustration for a children's book. Style: Warm digital oil painting. Scene: ${imagePrompt}` 
           }
         ],
       },
-      // Note: Do NOT set responseMimeType for image generation models like 2.5-flash-image
     });
 
     if (response.candidates?.[0]?.content?.parts) {
@@ -106,40 +122,18 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
         }
       }
     }
-    
-    throw new Error("No image data in Flash response");
-
-  } catch (flashError) {
-    console.warn("Gemini Flash Image failed, trying Imagen fallback...", flashError);
-
-    // Attempt 2: Imagen 3 (High Quality, but might be restricted)
-    try {
-      const response = await ai.models.generateImages({
-        model: "imagen-3.0-generate-001",
-        prompt: `Children's book illustration, warm style, digital art, magical atmosphere. Scene: ${imagePrompt}`,
-        config: {
-          numberOfImages: 1,
-          aspectRatio: "16:9",
-          outputMimeType: "image/jpeg"
-        }
-      });
-
-      const base64Image = response.generatedImages?.[0]?.image?.imageBytes;
-      if (base64Image) {
-          return `data:image/jpeg;base64,${base64Image}`;
-      }
-    } catch (imagenError) {
-       console.error("Imagen fallback also failed", imagenError);
-    }
+  } catch (e) {
+    console.warn("Gemini Flash Image failed...", e);
+    // If this fails too, we throw the error to the UI so we can see the '403' or restriction message.
+    lastError = e;
   }
 
-  // --- FINAL FALLBACK: Static Aesthetic Image ---
-  // Returns a random high-quality nature/abstract image so the UI never breaks.
-  return getFallbackImage();
+  // If we reached here, both failed. Throw the error to be caught by the component.
+  throw lastError || new Error("Image generation failed");
 };
 
-const getFallbackImage = () => {
-    // A curated list of warm, story-like images from Unsplash (Copyright Free)
+// Exported so the UI can use it when it catches an error
+export const getFallbackImage = () => {
     const fallbacks = [
         "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000&auto=format&fit=crop", // Gold sunset
         "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000&auto=format&fit=crop", // Beach
