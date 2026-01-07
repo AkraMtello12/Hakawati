@@ -43,17 +43,26 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
     ? "The main character is a little girl. Use feminine pronouns (هي/لها)."
     : "The main character is a little boy. Use masculine pronouns (هو/له).";
 
+  const sidekickInstruction = params.sidekick 
+    ? `The child has a loyal companion: a ${params.sidekick}. This companion must be present in the story scenes, reacting to the events in a cute way, but the child remains the hero.`
+    : "";
+
+  // CRITICAL: Strict name enforcement
   const prompt = `
-    Create a children's story for ${params.childName}, who is ${params.age} years old.
+    IMPORTANT: The main character's name is "${params.childName}". You MUST use this EXACT name ("${params.childName}") throughout the story. DO NOT change the name or invent a new one.
+
+    Task: Create a children's story for ${params.childName}, who is ${params.age} years old.
     ${genderInstruction}
     ${moralInstruction}
     ${dialectInstruction}
+    ${sidekickInstruction}
     
     Structure:
     1. **Story**: Exactly 4 pages (scenes).
     2. **Magic Dictionary**: Identify 3-4 difficult or dialect-heavy words used in the text. Provide their simplified definition in Arabic.
     3. **Moral Choice**: Create a scenario based on the story where the child must make a decision. This should happen conceptually in the middle of the story. Provide 2 options: one correct (leading to the moral) and one incorrect (but understandable mistake).
     4. **Moral Name**: A short 1-2 word title for the badge (e.g., "الصدق", "الأمانة", "مساعدة الغير").
+    5. **Hakawati's Bundle (Proverb)**: A traditional Syrian or Arabic proverb (مثل شعبي) that matches the moral of the story perfectly. Include a very simple, cute explanation for a child.
 
     For each page, provide the story text and a simplified English description for an illustration (image_prompt).
   `;
@@ -111,9 +120,17 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
                     }
                 },
                 required: ["text", "options"]
+            },
+            proverb: {
+                type: Type.OBJECT,
+                properties: {
+                    text: { type: Type.STRING, description: "The proverb text in Arabic" },
+                    explanation: { type: Type.STRING, description: "Simple explanation for a child" }
+                },
+                required: ["text", "explanation"]
             }
           },
-          required: ["title", "pages", "dictionary", "question", "moralName"]
+          required: ["title", "pages", "dictionary", "question", "moralName", "proverb"]
         }
       }
     });

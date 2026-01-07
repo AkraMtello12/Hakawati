@@ -35,7 +35,7 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 1, delay: 0.2 }}
-          className="text-6xl md:text-8xl font-serif text-transparent bg-clip-text bg-gradient-to-b from-h-gold-light to-h-gold drop-shadow-2xl mb-6 leading-tight"
+          className="text-6xl md:text-8xl font-serif text-transparent bg-clip-text bg-gradient-to-b from-h-gold-light to-h-gold drop-shadow-2xl mb-6 leading-relaxed pb-4"
         >
           حكواتي
         </motion.h1>

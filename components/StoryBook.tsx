@@ -1,20 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2, Image as ImageIcon, Heart, Medal, BookOpen, Star, HelpCircle, Gift, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2, Image as ImageIcon, Heart, Medal, BookOpen, Star, HelpCircle, Gift, CheckCircle, XCircle, ArrowRight, Package, Lightbulb } from 'lucide-react';
 import { GeneratedStory } from '../types';
-import { generateSceneImage, generateSpeech } from '../services/geminiService';
+import { generateSpeech } from '../services/geminiService';
 
 interface StoryBookProps {
   story: GeneratedStory;
   onReset: () => void;
 }
 
+const HAKAWATI_IMAGE_URL = "https://i.postimg.cc/nrFchMKp/Gemini-Generated-Image-a558hxa558hxa558.png";
+
 const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
   const [currentPage, setCurrentPage] = useState(0);
-  const [images, setImages] = useState<string[]>(new Array(story.pages.length).fill(''));
   const [showInteraction, setShowInteraction] = useState(false);
   const [interactionCompleted, setInteractionCompleted] = useState(false);
   const [showBadge, setShowBadge] = useState(false);
+  
+  // Bundle / Proverb State
+  const [showBundleModal, setShowBundleModal] = useState(false);
   
   // Interaction Feedback State
   const [feedback, setFeedback] = useState<{ isCorrect: boolean; message: string } | null>(null);
@@ -105,26 +109,6 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
     };
   }, []);
 
-  // Image Loading (Theme Based)
-  useEffect(() => {
-    const loadImage = async () => {
-      if (images[currentPage]) return;
-
-      if (story.pages[currentPage]) {
-        const imgUrl = await generateSceneImage(
-            story.pages[currentPage].imagePrompt, 
-            story.moralId
-        );
-        setImages(prev => {
-            const newImages = [...prev];
-            newImages[currentPage] = imgUrl;
-            return newImages;
-        });
-      }
-    };
-    loadImage();
-  }, [currentPage, story.pages, story.moralId]);
-
   const nextPage = () => {
     // Interaction Check at mid-point (e.g. after page index 1, which is page 2)
     if (currentPage === 1 && !interactionCompleted) {
@@ -210,37 +194,33 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
              <motion.div 
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="z-10 bg-[#fdfbf7] p-8 md:p-12 rounded-[3rem] max-w-lg w-full text-center shadow-[0_0_60px_rgba(212,175,55,0.4)] border-8 border-double border-h-gold relative"
+                className="z-10 bg-[#fdfbf7] p-8 md:p-12 rounded-[3rem] max-w-lg w-full text-center shadow-[0_0_60px_rgba(212,175,55,0.4)] border-8 border-double border-h-gold relative overflow-hidden flex flex-col items-center gap-8"
              >
                 {/* Ribbon */}
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-h-accent text-white px-8 py-2 rounded-full font-serif text-xl shadow-lg">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-h-accent text-white px-10 py-3 rounded-b-xl font-serif text-xl shadow-lg z-20">
                     النهاية
                 </div>
 
-                <div className="mt-8 mb-8 relative inline-block">
-                    <Medal size={120} className="text-h-gold drop-shadow-xl mx-auto" strokeWidth={1} />
-                    <motion.div 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.5, type: 'spring' }}
-                        className="absolute inset-0 flex items-center justify-center"
-                    >
-                         <Star className="text-h-gold fill-h-gold/20 animate-spin-slow" size={160} />
-                    </motion.div>
+                <div className="mt-8 relative inline-block">
+                    <Medal size={160} className="text-h-gold drop-shadow-xl mx-auto" strokeWidth={1} />
                 </div>
                 
-                <h2 className="text-3xl font-serif text-h-night mb-4">أحسنت يا بطل!</h2>
-                <p className="text-gray-600 font-sans mb-8">لقد أتممت القصة وحصلت على وسام</p>
-                
-                <div className="bg-h-gold/10 border border-h-gold/30 p-6 rounded-2xl mb-8">
-                    <h3 className="text-4xl font-serif text-h-gold mb-2">{story.moralName}</h3>
+                <div className="flex flex-col items-center gap-2 w-full">
+                    <h2 className="text-4xl font-serif text-h-night font-bold">أحسنت يا بطل!</h2>
+                    
+                    <div className="flex flex-col items-center mt-2">
+                         <span className="text-gray-500 font-sans text-lg mb-2">لقد حصلت على وسام الحكمة</span>
+                        <div className="bg-h-gold/10 border border-h-gold/30 px-10 py-3 rounded-2xl shadow-sm">
+                            <h3 className="text-3xl font-serif text-h-gold font-bold">{story.moralName}</h3>
+                        </div>
+                    </div>
                 </div>
 
                 <button 
                     onClick={onReset}
-                    className="w-full py-4 bg-h-night text-white rounded-xl font-serif text-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+                    className="w-full mt-2 py-4 bg-h-night text-white rounded-2xl font-serif text-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-xl"
                 >
-                    <BookOpen size={20} />
+                    <BookOpen size={24} />
                     حكاية جديدة
                 </button>
              </motion.div>
@@ -266,8 +246,9 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
         <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-8 bg-gradient-to-r from-[#2c1e16] to-[#4a362a] z-10 transform -translate-x-1/2 shadow-inner"></div>
 
         {/* Right Page (Text) */}
-        <div className="flex-1 p-8 md:p-16 flex flex-col justify-center relative md:border-l border-[#e5e5e5]">
-           <div className="absolute top-0 right-0 p-6 opacity-10">
+        <div className="flex-1 p-8 md:p-14 flex flex-col relative md:border-l border-[#e5e5e5] bg-[#fdfbf7]">
+           {/* Decorative Texture */}
+           <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
                 <img src="https://www.transparenttextures.com/patterns/arabesque.png" className="w-32 h-32" alt="decor" />
            </div>
            
@@ -276,17 +257,26 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
              initial={{ opacity: 0, x: 20 }}
              animate={{ opacity: 1, x: 0 }}
              transition={{ duration: 0.5 }}
+             className="flex-1 flex flex-col justify-center"
            >
-             <h2 className="text-3xl md:text-4xl font-serif text-h-gold mb-8 text-center md:text-right leading-relaxed">
-               {currentPage === 0 ? story.title : `الفصل ${currentPage + 1}`}
-             </h2>
-             <div className="text-xl md:text-2xl font-sans leading-[2.2] text-gray-800 text-justify">
+             {/* Title Section */}
+             <div className="mb-8 text-center md:text-right border-b-2 border-h-gold/20 pb-4">
+                 <h2 className="text-3xl md:text-4xl font-bold font-serif text-h-gold">
+                    {currentPage === 0 ? story.title : `الفصل ${currentPage + 1}`}
+                 </h2>
+             </div>
+
+             {/* Body Text */}
+             <div 
+                className="text-lg md:text-2xl font-medium leading-[2.4] text-gray-800 font-sans"
+                style={{ textAlign: 'justify', textJustify: 'inter-word' }}
+             >
                {/* Use the Dictionary Renderer here */}
                {renderTextWithDictionary(story.pages[currentPage].text)}
              </div>
            </motion.div>
 
-           <div className="mt-8 flex items-center gap-4">
+           <div className="mt-8 flex items-center justify-between border-t border-gray-100 pt-6">
               <button 
                 onClick={playAudio}
                 disabled={loadingAudio}
@@ -305,35 +295,34 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
                   )}
                   <span>{isPlaying ? 'إيقاف القراءة' : 'اقرأ لي'}</span>
               </button>
-           </div>
 
-           <div className="mt-auto text-center text-gray-400 font-serif">
-             {currentPage + 1} / {story.pages.length}
+               <div className="text-center text-gray-400 font-serif text-lg">
+                 {currentPage + 1} / {story.pages.length}
+               </div>
            </div>
         </div>
 
         {/* Left Page (Image) */}
         <div className="flex-1 p-4 md:p-8 bg-[#f5f5f0] flex items-center justify-center relative overflow-hidden">
             <div className="w-full h-full border-4 border-dashed border-[#d4af37]/30 rounded-2xl flex items-center justify-center bg-white shadow-inner overflow-hidden relative group">
-                <AnimatePresence mode='wait'>
-                    <div className="relative w-full h-full">
-                        <motion.img
-                            key={`img-${currentPage}`}
-                            src={images[currentPage]}
-                            alt="Story Scene"
-                            initial={{ scale: 1.05, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 1 }}
-                            className="w-full h-full object-cover rounded-xl"
-                        />
-                        
-                        {/* Theme Badge */}
-                        <div className="absolute top-4 right-4 bg-h-gold/90 backdrop-blur px-3 py-1 rounded-full text-xs text-white font-sans shadow-sm flex items-center gap-1">
-                            {story.moralId ? <Heart size={12} fill="white" /> : <ImageIcon size={12} />}
-                            <span>{story.moralId ? "لوحة فنية خاصة بالعبرة" : "مشهد فني"}</span>
-                        </div>
+                {/* Static Image */}
+                <div className="relative w-full h-full">
+                    <motion.img
+                        key="static-hakawati-image"
+                        src={HAKAWATI_IMAGE_URL}
+                        alt="الحكواتي"
+                        initial={{ scale: 1.05, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 1 }}
+                        className="w-full h-full object-cover rounded-xl"
+                    />
+                    
+                    {/* Theme Badge */}
+                    <div className="absolute top-4 right-4 bg-h-gold/90 backdrop-blur px-3 py-1 rounded-full text-xs text-white font-sans shadow-sm flex items-center gap-1">
+                        <ImageIcon size={12} />
+                        <span>جلسة الحكاية</span>
                     </div>
-                </AnimatePresence>
+                </div>
                 
                 {/* Image Overlay Texture */}
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/canvas-orange.png')] opacity-30 mix-blend-multiply pointer-events-none"></div>
@@ -343,7 +332,9 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
       </div>
 
       {/* --- Controls --- */}
-      <div className="flex gap-8 mt-8 z-10">
+      <div className="flex gap-4 md:gap-8 mt-8 z-10 w-full max-w-6xl items-center justify-between px-4 md:px-0">
+        
+        {/* Previous Button (Left) */}
         <button 
             onClick={prevPage} 
             disabled={currentPage === 0}
@@ -351,24 +342,102 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
         >
             <ChevronRight size={32} />
         </button>
-        <button 
-            onClick={nextPage} 
-            className={`group rounded-full transition-all flex items-center gap-2 shadow-lg ${
-                currentPage === story.pages.length - 1
-                ? 'bg-gradient-to-r from-h-gold to-yellow-600 px-8 py-4 hover:scale-105 shadow-h-gold/50'
-                : 'p-4 bg-h-gold hover:bg-yellow-600 shadow-h-gold/30'
-            } text-white`}
-        >
-            {(currentPage === story.pages.length - 1) ? (
-                <>
-                    <span className="font-serif text-xl">استلم هديتك</span>
-                    <Gift size={24} className="animate-bounce" />
-                </>
-            ) : (
-                <ChevronLeft size={32} />
+
+        {/* Right Side Controls */}
+        <div className="flex gap-4 items-center">
+            
+            {/* Hakawati Bundle Button (Only on Last Page) */}
+            {currentPage === story.pages.length - 1 && (
+                <motion.button
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowBundleModal(true)}
+                    className="flex flex-col md:flex-row items-center gap-2 p-3 md:px-6 md:py-4 bg-[#6c5b4c] text-[#fdfbf7] rounded-2xl md:rounded-full border border-h-gold/30 hover:bg-[#5a4a3c] transition-all shadow-lg"
+                >
+                    <motion.div
+                        animate={{ rotate: [0, 10, -10, 0] }}
+                        transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+                    >
+                        <Package size={24} className="text-h-gold" />
+                    </motion.div>
+                    <span className="font-serif text-sm md:text-lg">صرة الحكواتي</span>
+                </motion.button>
             )}
-        </button>
+
+            {/* Next / Claim Gift Button */}
+            <button 
+                onClick={nextPage} 
+                className={`group rounded-full transition-all flex items-center gap-2 shadow-lg ${
+                    currentPage === story.pages.length - 1
+                    ? 'bg-gradient-to-r from-h-gold to-yellow-600 px-8 py-4 hover:scale-105 shadow-h-gold/50'
+                    : 'p-4 bg-h-gold hover:bg-yellow-600 shadow-h-gold/30'
+                } text-white`}
+            >
+                {(currentPage === story.pages.length - 1) ? (
+                    <>
+                        <span className="font-serif text-xl">استلم هديتك</span>
+                        <Gift size={24} className="animate-bounce" />
+                    </>
+                ) : (
+                    <ChevronLeft size={32} />
+                )}
+            </button>
+        </div>
       </div>
+
+      {/* --- Bundle (Proverb) Modal --- */}
+      <AnimatePresence>
+        {showBundleModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                {/* Backdrop */}
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setShowBundleModal(false)}
+                    className="absolute inset-0 bg-h-night/70 backdrop-blur-md cursor-pointer"
+                />
+
+                {/* Modal Content */}
+                <motion.div 
+                    initial={{ scale: 0.5, opacity: 0, y: 50 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.5, opacity: 0, y: 50 }}
+                    className="relative bg-[#fdfbf7] w-full max-w-md rounded-3xl shadow-[0_0_80px_rgba(212,175,55,0.6)] overflow-hidden border-4 border-h-gold flex flex-col items-center p-8 text-center"
+                >
+                    {/* Decorative Top */}
+                    <div className="absolute top-0 inset-x-0 h-2 bg-h-gold" />
+                    <div className="absolute -top-6 bg-h-gold text-white p-3 rounded-full shadow-lg border-4 border-[#fdfbf7]">
+                         <Package size={32} />
+                    </div>
+
+                    <div className="mt-8 mb-6">
+                        <h3 className="text-2xl font-serif text-h-gold font-bold mb-1">صرة الحكواتي</h3>
+                        <p className="text-sm text-gray-500 font-sans">هدية من التراث</p>
+                    </div>
+
+                    <div className="w-full bg-h-gold/5 rounded-2xl p-6 border border-h-gold/20 mb-6">
+                        <p className="text-2xl font-serif font-bold text-h-night leading-relaxed mb-4">
+                           " {story.proverb.text} "
+                        </p>
+                        <div className="flex items-start justify-center gap-2 text-gray-600 font-sans text-sm md:text-base">
+                           <Lightbulb size={18} className="text-h-gold shrink-0 mt-1" />
+                           <p>{story.proverb.explanation}</p>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={() => setShowBundleModal(false)}
+                        className="px-8 py-3 bg-h-night text-white rounded-xl font-serif text-lg hover:bg-gray-800 transition-all w-full"
+                    >
+                        شكراً يا حكواتي
+                    </button>
+                </motion.div>
+            </div>
+        )}
+      </AnimatePresence>
 
       {/* --- Interaction Modal (Pop-up) --- */}
       <AnimatePresence>

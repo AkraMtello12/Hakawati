@@ -13,6 +13,7 @@ export interface StoryParams {
   moral: string;
   moralId?: string; 
   dialect: StoryDialect;
+  sidekick?: string; // New: The chosen animal companion
 }
 
 export interface DictionaryEntry {
@@ -31,6 +32,11 @@ export interface InteractiveQuestion {
   options: InteractiveOption[];
 }
 
+export interface StoryProverb {
+  text: string;
+  explanation: string;
+}
+
 export interface StoryPage {
   text: string;
   imagePrompt: string;
@@ -41,9 +47,10 @@ export interface GeneratedStory {
   title: string;
   moralId?: string;
   pages: StoryPage[];
-  dictionary: DictionaryEntry[]; // New: List of difficult words
-  question: InteractiveQuestion; // New: Mid-story interaction
-  moralName: string; // New: The display name of the moral for the badge (e.g., "الصدق")
+  dictionary: DictionaryEntry[];
+  question: InteractiveQuestion;
+  moralName: string;
+  proverb: StoryProverb; // New: Hakawati's Bundle reward
 }
 
 export enum AppState {

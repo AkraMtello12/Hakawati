@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Sparkles, Heart, Lightbulb, Droplets, Smile, Volume2, ScrollText, Edit3, Users } from 'lucide-react';
+import { User, Sparkles, Heart, Lightbulb, Droplets, Smile, Volume2, ScrollText, Edit3, Users, Cat, Bird } from 'lucide-react';
 import { StoryParams, StoryDialect, Gender } from '../types';
 
 interface StoryEngineProps {
@@ -15,6 +15,7 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
   const [moralPrompt, setMoralPrompt] = useState(''); 
   const [customMoral, setCustomMoral] = useState('');
   const [dialect, setDialect] = useState<StoryDialect>(StoryDialect.SYRIAN);
+  const [sidekick, setSidekick] = useState<string>('');
 
   const morals = [
     { id: 'kindness', label: 'اللطف', icon: Heart, prompt: 'kindness and compassion' },
@@ -22,6 +23,12 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
     { id: 'saving', label: 'التوفير', icon: Droplets, prompt: 'saving resources' },
     { id: 'friendship', label: 'الصداقة', icon: Users, prompt: 'friendship and loyalty' },
     { id: 'optimism', label: 'التفاؤل', icon: Smile, prompt: 'hope and optimism' },
+  ];
+
+  const sidekicks = [
+    { id: 'cat', label: 'قطة', icon: '🐱' },
+    { id: 'bird', label: 'عصفور', icon: '🐦' },
+    { id: 'turtle', label: 'سلحفاة', icon: '🐢' },
   ];
 
   const handleMoralSelect = (id: string, prompt: string) => {
@@ -51,7 +58,8 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
         age,
         moral: customMoral || moralPrompt, 
         moralId: selectedMoralId || undefined, 
-        dialect
+        dialect,
+        sidekick: sidekick || undefined
       });
     }
   };
@@ -132,7 +140,31 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
                     </div>
                 </div>
 
-                {/* 3. Moral Selection (Optional) */}
+                {/* 3. Sidekick Selection (New Feature) */}
+                <div className="space-y-4">
+                     <label className="text-xl font-serif text-h-night flex justify-between items-center">
+                        <span>هل يرافق البطل صديق أليف؟</span>
+                        <span className="text-sm text-gray-400 font-sans">(اختياري)</span>
+                    </label>
+                    <div className="flex gap-4 overflow-x-auto pb-2">
+                        {sidekicks.map((s) => (
+                            <button
+                                key={s.id}
+                                onClick={() => setSidekick(s === sidekicks.find(k => k.id === sidekick) ? '' : s.label)}
+                                className={`flex-1 min-w-[100px] p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                                    sidekick === s.label
+                                    ? 'border-h-gold bg-h-gold/10 shadow-lg'
+                                    : 'border-gray-200 bg-white hover:border-h-gold/50'
+                                }`}
+                            >
+                                <span className="text-4xl">{s.icon}</span>
+                                <span className="font-sans font-medium text-gray-700">{s.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 4. Moral Selection (Optional) */}
                 <div className="space-y-4">
                     <label className="text-xl font-serif text-h-night flex justify-between">
                         <span>ما هي العبرة المطلوبة؟</span>
@@ -177,7 +209,7 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
                     </div>
                 </div>
 
-                {/* 4. Dialect Switch */}
+                {/* 5. Dialect Switch */}
                 <div className="flex items-center justify-between bg-h-stone p-4 rounded-2xl border border-gray-200">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-h-night rounded-full text-white">
