@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { GoogleGenAI, Type, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { StoryParams, GeneratedStory, StoryDialect } from "../types";
 
 const SYSTEM_INSTRUCTION = `
@@ -8,6 +8,14 @@ The stories should be visually descriptive to help generating images later.
 The style should be 'Neo-Heritage' - mixing traditional wisdom with modern clarity.
 Ensure the content is absolutely safe, positive, and educational.
 `;
+
+// Safety settings to prevent blocking safe content
+const SAFETY_SETTINGS = [
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+];
 
 export const generateStoryText = async (params: StoryParams): Promise<GeneratedStory> => {
   const apiKey = process.env.API_KEY;
@@ -29,17 +37,19 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
     ${dialectInstruction}
     
     Structure the story into exactly 4 pages (scenes).
-    For each page, provide the story text and a detailed English description for an illustration (image_prompt).
-    The image style should be "warm digital oil painting, magical realism, golden lighting, Damascene architecture details".
+    For each page, provide the story text and a simplified English description for an illustration (image_prompt).
+    The image prompt must be simple, safe, and describe a scene suitable for a children's book.
+    Avoid complex details in the image prompt to ensure better generation with lightweight models.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-flash-preview", // Free Tier Friendly Text Model
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
+        safetySettings: SAFETY_SETTINGS,
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -77,19 +87,24 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
 
   const ai = new GoogleGenAI({ apiKey });
 
-  // FORCE FREE TIER MODEL ONLY
-  // We use 'gemini-2.5-flash-image' specifically because it has the most generous free tier limits.
-  // We strictly avoid 'pro' or 'imagen' models to prevent 429/404 errors on free accounts.
+  // STRICTLY FREE TIER MODEL: gemini-2.5-flash-image
+  // This model is part of the experimental/preview tier and usually has free quota.
+  // We avoid 'pro' models completely.
+  
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
       contents: {
         parts: [
           { 
-            text: `Illustration for children's book. Style: Warm digital oil painting, vibrant colors. Scene: ${imagePrompt}` 
+            text: `Children's book illustration, oil painting style, warm colors. Scene: ${imagePrompt}` 
           }
         ],
       },
+      config: {
+        safetySettings: SAFETY_SETTINGS,
+        // responseMimeType is not supported for this model, so we don't set it.
+      }
     });
 
     if (response.candidates?.[0]?.content?.parts) {
@@ -103,19 +118,23 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
     throw new Error("No image data returned from Gemini Flash");
 
   } catch (e) {
-    console.error("Gemini Flash Image Generation Failed:", e);
-    throw e;
+    console.warn("Gemini Flash Image Generation Failed (likely rate limit or region block). Using fallback.", e);
+    throw e; // We throw so the UI can catch and show the fallback
   }
 };
 
-export const getFallbackImage = () => {
+export const getFallbackImage = (index: number) => {
+    // A collection of safe, beautiful, abstract storytelling backgrounds from Unsplash
+    // Used when the API quota is hit or fails.
     const fallbacks = [
         "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000&auto=format&fit=crop", // Gold sunset
         "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000&auto=format&fit=crop", // Beach
-        "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?q=80&w=1000&auto=format&fit=crop", // Forest
-        "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1000&auto=format&fit=crop"  // Mountains
+        "https://images.unsplash.com/photo-1448375240586-dfd8f3793371?q=80&w=1000&auto=format&fit=crop", // Forest
+        "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1000&auto=format&fit=crop", // Mountains / Stars
+        "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?q=80&w=1000&auto=format&fit=crop", // Night Sky
     ];
-    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    // Return a consistent image based on the page index to avoid flickering
+    return fallbacks[index % fallbacks.length];
 };
 
 export const generateSpeech = async (text: string): Promise<string> => {

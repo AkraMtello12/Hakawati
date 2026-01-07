@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2, AlertTriangle, XCircle, Info } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { GeneratedStory } from '../types';
 import { generateSceneImage, generateSpeech, getFallbackImage } from '../services/geminiService';
 
@@ -13,8 +13,7 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [images, setImages] = useState<string[]>(new Array(story.pages.length).fill(''));
   const [loadingImage, setLoadingImage] = useState(false);
-  const [imageError, setImageError] = useState<string | null>(null);
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [usingFallback, setUsingFallback] = useState<boolean[]>(new Array(story.pages.length).fill(false));
   
   // Audio states
   const [isPlaying, setIsPlaying] = useState(false);
@@ -38,7 +37,7 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
       try {
         sourceNodeRef.current.stop();
       } catch (e) {
-        // ignore if already stopped
+        // ignore
       }
       sourceNodeRef.current = null;
     }
@@ -53,10 +52,8 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
 
     setLoadingAudio(true);
     try {
-      // 1. Generate audio data
       const base64Audio = await generateSpeech(story.pages[currentPage].text);
       
-      // 2. Setup Audio Context
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
       }
@@ -66,9 +63,7 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
         await ctx.resume();
       }
 
-      // 3. Decode
       const arrayBuffer = decodeBase64(base64Audio);
-      
       const dataInt16 = new Int16Array(arrayBuffer);
       const float32Data = new Float32Array(dataInt16.length);
       for (let i = 0; i < dataInt16.length; i++) {
@@ -78,7 +73,6 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
       const audioBuffer = ctx.createBuffer(1, float32Data.length, 24000);
       audioBuffer.getChannelData(0).set(float32Data);
 
-      // 4. Play
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(ctx.destination);
@@ -96,14 +90,10 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
     }
   };
 
-  // Stop audio when changing pages
   useEffect(() => {
     stopAudio();
-    setImageError(null); // Reset error on page change
-    setShowErrorDetails(false);
   }, [currentPage]);
 
-  // Clean up audio on unmount
   useEffect(() => {
     return () => {
         stopAudio();
@@ -113,32 +103,35 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
     };
   }, []);
 
-  // Load image for current page if not exists
+  // Load image
   useEffect(() => {
     const loadImage = async () => {
-      if (!images[currentPage] && story.pages[currentPage]) {
+      // If we already have an image (generated or fallback), don't reload
+      if (images[currentPage]) return;
+
+      if (story.pages[currentPage]) {
         setLoadingImage(true);
-        setImageError(null);
-        setImageError(null); // Reset error before trying
         try {
+          // Attempt to generate AI image
           const imgUrl = await generateSceneImage(story.pages[currentPage].imagePrompt);
           setImages(prev => {
             const newImages = [...prev];
             newImages[currentPage] = imgUrl;
             return newImages;
           });
-        } catch (e: any) {
-          console.error("Failed to load image", e);
-          // Set Fallback Image
+        } catch (e) {
+          console.log("Using fallback image due to API limit/error");
+          // If generation fails (429, 404, etc.), silently switch to fallback
           setImages(prev => {
             const newImages = [...prev];
-            newImages[currentPage] = getFallbackImage();
+            newImages[currentPage] = getFallbackImage(currentPage);
             return newImages;
           });
-          
-          // Debugging info
-          const msg = e?.message || JSON.stringify(e);
-          setImageError(msg);
+          setUsingFallback(prev => {
+            const newStatus = [...prev];
+            newStatus[currentPage] = true;
+            return newStatus;
+          });
         } finally {
           setLoadingImage(false);
         }
@@ -153,13 +146,6 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
 
   const prevPage = () => {
     if (currentPage > 0) setCurrentPage(c => c - 1);
-  };
-
-  const getErrorMessage = (err: string) => {
-    if (err.includes("429")) return "تجاوزت حد الاستخدام المجاني (Quota). يجب ربط الفوترة (Billing) في Google Cloud لاستخدام النماذج القوية.";
-    if (err.includes("403")) return "المفتاح محظور أو الموقع الجغرافي غير مدعوم.";
-    if (err.includes("404")) return "النموذج المطلوب غير متوفر لهذا المفتاح.";
-    return "حدث خطأ تقني أثناء التوليد. تم عرض صورة بديلة.";
   };
 
   return (
@@ -251,32 +237,19 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
                                 className="w-full h-full object-cover rounded-xl"
                             />
                             
-                            {/* Error Indicator */}
-                            {imageError && (
-                                <div className="absolute top-2 right-2">
-                                    <button 
-                                        onClick={() => setShowErrorDetails(!showErrorDetails)}
-                                        className="bg-yellow-500 text-white p-2 rounded-full shadow-lg hover:bg-yellow-600 transition-colors"
-                                        title="تنبيه"
-                                    >
-                                        <Info size={20} />
-                                    </button>
+                            {/* Fallback Indicator */}
+                            {usingFallback[currentPage] && (
+                                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs text-gray-500 font-sans shadow-sm flex items-center gap-1">
+                                    <ImageIcon size={12} />
+                                    <span>صورة توضيحية (الخادم مشغول)</span>
                                 </div>
                             )}
 
-                             {/* Friendly Error Popup */}
-                             {showErrorDetails && imageError && (
-                                <div className="absolute top-12 right-2 left-2 bg-white/95 backdrop-blur p-4 rounded-xl shadow-2xl border-2 border-yellow-100 z-20 text-right dir-rtl">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-bold text-yellow-600 text-sm">ملاحظة تقنية</h4>
-                                        <button onClick={() => setShowErrorDetails(false)} className="text-gray-400"><XCircle size={16} /></button>
-                                    </div>
-                                    <p className="text-sm text-gray-700 font-sans mb-2 leading-relaxed">
-                                        {getErrorMessage(imageError)}
-                                    </p>
-                                    <div className="text-xs text-gray-400 font-mono bg-gray-50 p-2 rounded dir-ltr text-left overflow-hidden text-ellipsis">
-                                        {imageError.slice(0, 100)}...
-                                    </div>
+                             {/* AI Generated Indicator */}
+                             {!usingFallback[currentPage] && images[currentPage] && (
+                                <div className="absolute top-4 right-4 bg-h-gold/90 backdrop-blur px-3 py-1 rounded-full text-xs text-white font-sans shadow-sm flex items-center gap-1">
+                                    <Sparkles size={12} />
+                                    <span>رسم بالذكاء الاصطناعي</span>
                                 </div>
                             )}
                         </div>
