@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2, Image as ImageIcon, Heart, Medal, BookOpen, Star, HelpCircle, Gift } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2, Image as ImageIcon, Heart, Medal, BookOpen, Star, HelpCircle, Gift, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { GeneratedStory } from '../types';
 import { generateSceneImage, generateSpeech } from '../services/geminiService';
 
@@ -15,6 +15,9 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
   const [showInteraction, setShowInteraction] = useState(false);
   const [interactionCompleted, setInteractionCompleted] = useState(false);
   const [showBadge, setShowBadge] = useState(false);
+  
+  // Interaction Feedback State
+  const [feedback, setFeedback] = useState<{ isCorrect: boolean; message: string } | null>(null);
   
   // Audio states
   const [isPlaying, setIsPlaying] = useState(false);
@@ -138,6 +141,23 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
 
   const prevPage = () => {
     if (currentPage > 0) setCurrentPage(c => c - 1);
+  };
+  
+  // Handle Interaction Logic
+  const handleInteractionOption = (isCorrect: boolean, msg: string) => {
+    setFeedback({ isCorrect, message: msg });
+  };
+
+  const closeInteraction = () => {
+      if (feedback?.isCorrect) {
+          setInteractionCompleted(true);
+          setShowInteraction(false);
+          setCurrentPage(prev => prev + 1);
+          setFeedback(null);
+      } else {
+          // Reset to try again
+          setFeedback(null);
+      }
   };
 
   // --- Magic Dictionary Renderer ---
@@ -374,45 +394,78 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
                         <div className="bg-white p-3 rounded-full shadow-md border border-h-gold/30 mb-3">
                             <HelpCircle size={32} className="text-h-gold" />
                         </div>
-                        <h3 className="text-2xl font-serif text-h-night text-center">ماذا ستفعل لو كنت البطل؟</h3>
+                        <h3 className="text-2xl font-serif text-h-night text-center">
+                             {feedback ? (feedback.isCorrect ? "أحسنت الاختيار!" : "فكر مرة أخرى") : "ماذا ستفعل لو كنت البطل؟"}
+                        </h3>
                     </div>
 
-                    {/* Question Content */}
-                    <div className="p-8">
-                        <p className="text-xl text-center font-sans text-gray-700 mb-8 leading-relaxed">
-                            {story.question.text}
-                        </p>
-
-                        <div className="space-y-4">
-                            {story.question.options.map((opt, idx) => (
-                                <motion.button
-                                    key={idx}
-                                    initial={{ x: -20, opacity: 0 }}
-                                    animate={{ x: 0, opacity: 1 }}
-                                    transition={{ delay: idx * 0.1 + 0.2 }}
-                                    onClick={() => {
-                                        if (opt.isCorrect) {
-                                            // Provide visual feedback instead of alert? For now alert is fine but logic is improved.
-                                            // In a polished app, you might show a success state inside the modal first.
-                                            alert(`✅ ${opt.feedback}`); 
-                                            setInteractionCompleted(true);
-                                            setShowInteraction(false);
-                                            setCurrentPage(prev => prev + 1);
-                                        } else {
-                                            alert(`⚠️ ${opt.feedback}`);
-                                        }
-                                    }}
-                                    className="w-full group p-4 rounded-xl border-2 border-gray-200 hover:border-h-gold hover:bg-h-gold/5 transition-all flex items-center gap-4 text-right"
+                    {/* Content Area - Switches between Question and Feedback */}
+                    <div className="p-8 min-h-[300px] flex flex-col justify-center">
+                        <AnimatePresence mode="wait">
+                            {!feedback ? (
+                                <motion.div 
+                                    key="question"
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: 20 }}
                                 >
-                                    <div className="w-10 h-10 rounded-full bg-white border-2 border-gray-300 group-hover:border-h-gold flex items-center justify-center text-gray-500 group-hover:text-h-gold font-bold font-serif shadow-sm">
-                                        {idx + 1}
+                                    <p className="text-xl text-center font-sans text-gray-700 mb-8 leading-relaxed">
+                                        {story.question.text}
+                                    </p>
+
+                                    <div className="space-y-4">
+                                        {story.question.options.map((opt, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleInteractionOption(opt.isCorrect, opt.feedback)}
+                                                className="w-full group p-4 rounded-xl border-2 border-gray-200 hover:border-h-gold hover:bg-h-gold/5 transition-all flex items-center gap-4 text-right"
+                                            >
+                                                <div className="w-10 h-10 rounded-full bg-white border-2 border-gray-300 group-hover:border-h-gold flex items-center justify-center text-gray-500 group-hover:text-h-gold font-bold font-serif shadow-sm">
+                                                    {idx + 1}
+                                                </div>
+                                                <span className="flex-1 text-lg font-sans font-medium text-gray-700 group-hover:text-h-night">
+                                                    {opt.text}
+                                                </span>
+                                            </button>
+                                        ))}
                                     </div>
-                                    <span className="flex-1 text-lg font-sans font-medium text-gray-700 group-hover:text-h-night">
-                                        {opt.text}
-                                    </span>
-                                </motion.button>
-                            ))}
-                        </div>
+                                </motion.div>
+                            ) : (
+                                <motion.div 
+                                    key="feedback"
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    className="flex flex-col items-center text-center space-y-6"
+                                >
+                                    <div className={`p-4 rounded-full ${feedback.isCorrect ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                                        {feedback.isCorrect ? <CheckCircle size={64} /> : <XCircle size={64} />}
+                                    </div>
+                                    
+                                    <p className="text-2xl font-serif leading-relaxed text-gray-800">
+                                        {feedback.message}
+                                    </p>
+
+                                    <button 
+                                        onClick={closeInteraction}
+                                        className={`mt-4 px-8 py-3 rounded-xl font-serif text-lg flex items-center gap-2 transition-all shadow-lg ${
+                                            feedback.isCorrect 
+                                            ? 'bg-h-gold text-white hover:bg-yellow-600' 
+                                            : 'bg-gray-800 text-white hover:bg-black'
+                                        }`}
+                                    >
+                                        {feedback.isCorrect ? (
+                                            <>
+                                                <span>أكمل الحكاية</span>
+                                                <ArrowRight size={20} />
+                                            </>
+                                        ) : (
+                                            <span>حاول مرة أخرى</span>
+                                        )}
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </motion.div>
             </div>
