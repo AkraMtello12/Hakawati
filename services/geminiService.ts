@@ -76,13 +76,11 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
   if (!apiKey) throw new Error("API Key missing");
 
   const ai = new GoogleGenAI({ apiKey });
-  let lastError: any;
 
-  // STRATEGY: Reliability First (Free Tier Friendly)
-  // We prioritize 'gemini-2.5-flash-image' because it has much higher free quotas than Imagen.
-  // This solves the '429 Quota Exceeded' error for most users.
+  // STRATEGY: Gemini 2.5 Flash Image Only
+  // We removed Imagen because it causes 404 errors for many keys.
+  // If this fails (e.g. 429 Quota), the UI will handle the error and show a fallback.
 
-  // --- ATTEMPT 1: Gemini 2.5 Flash Image ---
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
@@ -102,36 +100,13 @@ export const generateSceneImage = async (imagePrompt: string): Promise<string> =
         }
       }
     }
+    
+    throw new Error("No image data found in response");
+
   } catch (e) {
-    console.warn("Gemini Flash Image failed, trying fallback...", e);
-    lastError = e;
+    console.warn("Gemini Flash Image failed:", e);
+    throw e; // Throw the original error (likely 429) so UI can display it correctly
   }
-
-  // --- ATTEMPT 2: Imagen 3 (High Quality, Lower Quota) ---
-  try {
-    const response = await ai.models.generateImages({
-      model: "imagen-3.0-generate-001",
-      prompt: `Children's book illustration, warm style, digital art, magical atmosphere. Scene: ${imagePrompt}`,
-      config: {
-        numberOfImages: 1,
-        aspectRatio: "16:9",
-        outputMimeType: "image/jpeg"
-      }
-    });
-
-    const base64Image = response.generatedImages?.[0]?.image?.imageBytes;
-    if (base64Image) {
-        return `data:image/jpeg;base64,${base64Image}`;
-    }
-  } catch (e) {
-    console.warn("Imagen 3 failed...", e);
-    // If the first error was a 429, it's likely the second is too if they share quotas, 
-    // but usually Flash is more lenient. We'll store this error too.
-    lastError = e;
-  }
-
-  // If both failed, throw the error to be displayed in the UI.
-  throw lastError || new Error("Image generation failed");
 };
 
 export const getFallbackImage = () => {

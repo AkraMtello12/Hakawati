@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2, AlertTriangle, XCircle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2, AlertTriangle, XCircle, Info } from 'lucide-react';
 import { GeneratedStory } from '../types';
 import { generateSceneImage, generateSpeech, getFallbackImage } from '../services/geminiService';
 
@@ -134,7 +134,8 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
             newImages[currentPage] = getFallbackImage();
             return newImages;
           });
-          // Capture error for debugging
+          
+          // Debugging info
           const msg = e?.message || JSON.stringify(e);
           setImageError(msg);
         } finally {
@@ -151,6 +152,13 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
 
   const prevPage = () => {
     if (currentPage > 0) setCurrentPage(c => c - 1);
+  };
+
+  const getErrorMessage = (err: string) => {
+    if (err.includes("429")) return "نفذ الرصيد المجاني للصور (Quota Exceeded). تم استخدام صورة بديلة.";
+    if (err.includes("404")) return "نموذج الصور غير متوفر حالياً. تم استخدام صورة بديلة.";
+    if (err.includes("503") || err.includes("500")) return "الخادم مشغول حالياً. تم استخدام صورة بديلة.";
+    return "حدث خطأ في توليد الصورة. تم استخدام صورة بديلة.";
   };
 
   return (
@@ -242,32 +250,31 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
                                 className="w-full h-full object-cover rounded-xl"
                             />
                             
-                            {/* Error Indicator (Only if failed) */}
+                            {/* Error Indicator */}
                             {imageError && (
                                 <div className="absolute top-2 right-2">
                                     <button 
                                         onClick={() => setShowErrorDetails(!showErrorDetails)}
-                                        className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors"
-                                        title="فشل توليد الصورة"
+                                        className="bg-yellow-500 text-white p-2 rounded-full shadow-lg hover:bg-yellow-600 transition-colors"
+                                        title="تنبيه"
                                     >
-                                        <AlertTriangle size={20} />
+                                        <Info size={20} />
                                     </button>
                                 </div>
                             )}
 
-                             {/* Error Popup */}
+                             {/* Friendly Error Popup */}
                              {showErrorDetails && imageError && (
-                                <div className="absolute top-12 right-2 left-2 bg-white p-4 rounded-xl shadow-2xl border-2 border-red-100 z-20 text-right dir-rtl">
+                                <div className="absolute top-12 right-2 left-2 bg-white/95 backdrop-blur p-4 rounded-xl shadow-2xl border-2 border-yellow-100 z-20 text-right dir-rtl">
                                     <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-bold text-red-600 text-sm">خطأ في الـ API</h4>
+                                        <h4 className="font-bold text-yellow-600 text-sm">ملاحظة</h4>
                                         <button onClick={() => setShowErrorDetails(false)} className="text-gray-400"><XCircle size={16} /></button>
                                     </div>
-                                    <p className="text-xs text-gray-600 font-mono break-all bg-gray-50 p-2 rounded mb-2">
-                                        {imageError.slice(0, 150)}...
+                                    <p className="text-sm text-gray-700 font-sans mb-2">
+                                        {getErrorMessage(imageError)}
                                     </p>
-                                    <p className="text-xs text-gray-500">
-                                        تأكد من إعدادات المفتاح في Google Cloud Console. <br/>
-                                        اقتراح: جرب إيقاف "API Restrictions" مؤقتاً.
+                                    <p className="text-xs text-gray-400 font-mono">
+                                        Technical: {imageError.slice(0, 50)}...
                                     </p>
                                 </div>
                             )}
