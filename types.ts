@@ -6,6 +6,8 @@ export enum StoryDialect {
 
 export type Gender = 'boy' | 'girl';
 
+export type StoryLength = 'short' | 'medium' | 'long';
+
 export interface StoryParams {
   childName: string;
   gender: Gender;
@@ -13,7 +15,9 @@ export interface StoryParams {
   moral: string;
   moralId?: string; 
   dialect: StoryDialect;
-  sidekick?: string; // New: The chosen animal companion
+  sidekick?: string; // The chosen animal companion
+  world?: string; // The story setting/world
+  length: StoryLength; // New: Story duration preference
 }
 
 export interface DictionaryEntry {
@@ -38,7 +42,7 @@ export interface StoryProverb {
 }
 
 export interface StoryPage {
-  text: string;
+  text: string; // Full text
   imagePrompt: string;
   imageUrl?: string; 
 }
@@ -50,7 +54,7 @@ export interface GeneratedStory {
   dictionary: DictionaryEntry[];
   question: InteractiveQuestion;
   moralName: string;
-  proverb: StoryProverb; // New: Hakawati's Bundle reward
+  proverb: StoryProverb;
 }
 
 export enum AppState {

@@ -245,59 +245,66 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
         {/* Spine */}
         <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-8 bg-gradient-to-r from-[#2c1e16] to-[#4a362a] z-10 transform -translate-x-1/2 shadow-inner"></div>
 
-        {/* Right Page (Text) */}
-        <div className="flex-1 p-8 md:p-14 flex flex-col relative md:border-l border-[#e5e5e5] bg-[#fdfbf7]">
+        {/* Right Page (Text & Controls) */}
+        {/* We use flex-col and h-full to manage layout, ensuring footer stays at bottom */}
+        <div className="flex-1 flex flex-col h-full relative md:border-l border-[#e5e5e5] bg-[#fdfbf7]">
            {/* Decorative Texture */}
-           <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+           <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none z-0">
                 <img src="https://www.transparenttextures.com/patterns/arabesque.png" className="w-32 h-32" alt="decor" />
            </div>
            
-           <motion.div
-             key={`text-${currentPage}`}
-             initial={{ opacity: 0, x: 20 }}
-             animate={{ opacity: 1, x: 0 }}
-             transition={{ duration: 0.5 }}
-             className="flex-1 flex flex-col justify-center"
-           >
-             {/* Title Section */}
-             <div className="mb-8 text-center md:text-right border-b-2 border-h-gold/20 pb-4">
-                 <h2 className="text-3xl md:text-4xl font-bold font-serif text-h-gold">
-                    {currentPage === 0 ? story.title : `الفصل ${currentPage + 1}`}
-                 </h2>
-             </div>
+           {/* Header: Title (Fixed at top) */}
+           <div className="flex-none p-8 md:p-14 pb-4 md:pb-4 z-10">
+               <div className="text-center md:text-right border-b-2 border-h-gold/20 pb-4">
+                   <h2 className="text-3xl md:text-4xl font-bold font-serif text-h-gold">
+                      {currentPage === 0 ? story.title : `الفصل ${currentPage + 1}`}
+                   </h2>
+               </div>
+           </div>
 
-             {/* Body Text */}
-             <div 
-                className="text-lg md:text-2xl font-medium leading-[2.4] text-gray-800 font-sans"
-                style={{ textAlign: 'justify', textJustify: 'inter-word' }}
-             >
-               {/* Use the Dictionary Renderer here */}
-               {renderTextWithDictionary(story.pages[currentPage].text)}
-             </div>
-           </motion.div>
+           {/* Body Text (Scrollable) */}
+           <div className="flex-1 overflow-y-auto overflow-x-hidden px-8 md:px-14 z-10 custom-scrollbar flex flex-col">
+               <motion.div
+                 key={`text-${currentPage}`}
+                 initial={{ opacity: 0, x: 20 }}
+                 animate={{ opacity: 1, x: 0 }}
+                 transition={{ duration: 0.5 }}
+                 className="py-4 w-full"
+               >
+                 <div 
+                    className="text-lg md:text-2xl font-medium leading-[2.4] text-gray-800 font-sans w-full break-words"
+                    style={{ textAlign: 'justify', textJustify: 'inter-word' }}
+                 >
+                   {renderTextWithDictionary(story.pages[currentPage].text)}
+                 </div>
+               </motion.div>
+           </div>
 
-           <div className="mt-8 flex items-center justify-between border-t border-gray-100 pt-6">
-              <button 
-                onClick={playAudio}
-                disabled={loadingAudio}
-                className={`flex items-center gap-2 px-6 py-2 rounded-full font-serif text-lg transition-all ${
-                    isPlaying 
-                    ? 'bg-red-50 text-red-500 border border-red-200' 
-                    : 'bg-h-gold/10 text-h-gold border border-h-gold/30 hover:bg-h-gold/20'
-                }`}
-              >
-                  {loadingAudio ? (
-                      <Loader2 size={20} className="animate-spin" />
-                  ) : isPlaying ? (
-                      <StopCircle size={20} />
-                  ) : (
-                      <Volume2 size={20} />
-                  )}
-                  <span>{isPlaying ? 'إيقاف القراءة' : 'اقرأ لي'}</span>
-              </button>
+           {/* Footer: Controls (Fixed at bottom) */}
+           <div className="flex-none p-8 md:p-14 pt-6 mt-auto z-10 bg-[#fdfbf7]">
+               <div className="flex items-center justify-between border-t border-gray-100 pt-6">
+                  <button 
+                    onClick={playAudio}
+                    disabled={loadingAudio}
+                    className={`flex items-center gap-2 px-6 py-2 rounded-full font-serif text-lg transition-all ${
+                        isPlaying 
+                        ? 'bg-red-50 text-red-500 border border-red-200' 
+                        : 'bg-h-gold/10 text-h-gold border border-h-gold/30 hover:bg-h-gold/20'
+                    }`}
+                  >
+                      {loadingAudio ? (
+                          <Loader2 size={20} className="animate-spin" />
+                      ) : isPlaying ? (
+                          <StopCircle size={20} />
+                      ) : (
+                          <Volume2 size={20} />
+                      )}
+                      <span>{isPlaying ? 'إيقاف القراءة' : 'اقرأ لي'}</span>
+                  </button>
 
-               <div className="text-center text-gray-400 font-serif text-lg">
-                 {currentPage + 1} / {story.pages.length}
+                   <div className="text-center text-gray-400 font-serif text-lg">
+                     {currentPage + 1} / {story.pages.length}
+                   </div>
                </div>
            </div>
         </div>

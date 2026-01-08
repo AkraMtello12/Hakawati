@@ -47,6 +47,22 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
     ? `The child has a loyal companion: a ${params.sidekick}. This companion must be present in the story scenes, reacting to the events in a cute way, but the child remains the hero.`
     : "";
 
+  const worldInstruction = params.world
+    ? `SETTING: The story MUST take place in ${params.world}. Adopt the atmosphere, descriptions, and logic of this world completely.`
+    : "SETTING: Choose an imaginative setting that best fits the moral and the story events (e.g., a forest, a village, a school, etc.).";
+
+  // Story Length Logic
+  let pageCount = 4;
+  let lengthDescription = "Standard story length.";
+  
+  if (params.length === 'short') {
+    pageCount = 3;
+    lengthDescription = "SHORT, FAST PACED story. Keep descriptions brief and action-oriented. Great for a quick bedtime story.";
+  } else if (params.length === 'long') {
+    pageCount = 6;
+    lengthDescription = "EPIC, DETAILED story. Include rich descriptions, longer dialogues, and deeper character interactions.";
+  }
+
   // CRITICAL: Strict name enforcement
   const prompt = `
     IMPORTANT: The main character's name is "${params.childName}". You MUST use this EXACT name ("${params.childName}") throughout the story. DO NOT change the name or invent a new one.
@@ -56,15 +72,20 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
     ${moralInstruction}
     ${dialectInstruction}
     ${sidekickInstruction}
+    ${worldInstruction}
+    
+    Length & Pacing: ${lengthDescription}
     
     Structure:
-    1. **Story**: Exactly 4 pages (scenes).
+    1. **Story**: Exactly ${pageCount} pages (scenes).
     2. **Magic Dictionary**: Identify 3-4 difficult or dialect-heavy words used in the text. Provide their simplified definition in Arabic.
     3. **Moral Choice**: Create a scenario based on the story where the child must make a decision. This should happen conceptually in the middle of the story. Provide 2 options: one correct (leading to the moral) and one incorrect (but understandable mistake).
     4. **Moral Name**: A short 1-2 word title for the badge (e.g., "الصدق", "الأمانة", "مساعدة الغير").
     5. **Hakawati's Bundle (Proverb)**: A traditional Syrian or Arabic proverb (مثل شعبي) that matches the moral of the story perfectly. Include a very simple, cute explanation for a child.
 
-    For each page, provide the story text and a simplified English description for an illustration (image_prompt).
+    For each page, provide:
+    - 'text': The full story text for that page.
+    - 'imagePrompt': English description for illustration.
   `;
 
   try {

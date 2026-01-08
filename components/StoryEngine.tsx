@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Sparkles, Heart, Lightbulb, Droplets, Smile, Volume2, ScrollText, Edit3, Users, Cat, Bird } from 'lucide-react';
-import { StoryParams, StoryDialect, Gender } from '../types';
+import { User, Sparkles, Heart, Lightbulb, Droplets, Smile, Volume2, ScrollText, Edit3, Users, Map, Castle, PartyPopper, Rocket, Zap, BookOpen, Hourglass } from 'lucide-react';
+import { StoryParams, StoryDialect, Gender, StoryLength } from '../types';
 
 interface StoryEngineProps {
   onSubmit: (params: StoryParams) => void;
@@ -16,6 +16,8 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
   const [customMoral, setCustomMoral] = useState('');
   const [dialect, setDialect] = useState<StoryDialect>(StoryDialect.SYRIAN);
   const [sidekick, setSidekick] = useState<string>('');
+  const [world, setWorld] = useState<string>('');
+  const [length, setLength] = useState<StoryLength>('medium');
 
   const morals = [
     { id: 'kindness', label: 'اللطف', icon: Heart, prompt: 'kindness and compassion' },
@@ -30,6 +32,19 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
     { id: 'bird', label: 'عصفور', icon: '🐦' },
     { id: 'turtle', label: 'سلحفاة', icon: '🐢' },
   ];
+
+  const worlds = [
+    { id: 'adventure', label: 'عالم المغامرة', icon: Map, prompt: 'an adventurous world full of maps, mountains, and hidden treasures' },
+    { id: 'fantasy', label: 'عالم الخيال', icon: Castle, prompt: 'a magical fantasy world with castles, magic wands, and enchanted creatures' },
+    { id: 'comedy', label: 'عالم الضحك', icon: PartyPopper, prompt: 'a silly, funny world like a circus or a town where everything is upside down' },
+    { id: 'space', label: 'عالم الفضاء', icon: Rocket, prompt: 'a sci-fi space setting with planets, stars, rockets, and friendly aliens' },
+  ];
+
+  const lengthOptions: Record<StoryLength, { label: string; icon: React.ElementType; sub: string }> = {
+    short: { label: 'قصة سريعة', icon: Zap, sub: 'خفيفة قبل النوم' },
+    medium: { label: 'قصة كاملة', icon: BookOpen, sub: 'المتعة المعتادة' },
+    long: { label: 'قصة ملحمية', icon: Hourglass, sub: 'بتفاصيل غنية' }
+  };
 
   const handleMoralSelect = (id: string, prompt: string) => {
     if (selectedMoralId === id) {
@@ -59,7 +74,9 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
         moral: customMoral || moralPrompt, 
         moralId: selectedMoralId || undefined, 
         dialect,
-        sidekick: sidekick || undefined
+        sidekick: sidekick || undefined,
+        world: world || undefined,
+        length
       });
     }
   };
@@ -140,7 +157,38 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
                     </div>
                 </div>
 
-                {/* 3. Sidekick Selection (New Feature) */}
+                {/* 3. Story World Selection (New Feature) */}
+                <div className="space-y-4">
+                    <label className="text-xl font-serif text-h-night flex justify-between items-center">
+                        <span>في أي عالم تدور القصة؟</span>
+                        <span className="text-sm text-gray-400 font-sans">(اختياري)</span>
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {worlds.map((w) => {
+                            const Icon = w.icon;
+                            const isSelected = world === w.prompt;
+                            return (
+                                <motion.button
+                                    key={w.id}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setWorld(isSelected ? '' : w.prompt)}
+                                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                                        isSelected 
+                                        ? 'bg-h-gold/10 border-h-gold text-h-gold shadow-lg' 
+                                        : 'bg-white border-gray-200 text-gray-500 hover:border-h-gold/50 hover:bg-h-gold/5'
+                                    }`}
+                                >
+                                    <div className={`p-3 rounded-full ${isSelected ? 'bg-h-gold text-white' : 'bg-gray-100'}`}>
+                                        <Icon size={24} />
+                                    </div>
+                                    <span className="font-sans font-bold">{w.label}</span>
+                                </motion.button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* 4. Sidekick Selection */}
                 <div className="space-y-4">
                      <label className="text-xl font-serif text-h-night flex justify-between items-center">
                         <span>هل يرافق البطل صديق أليف؟</span>
@@ -164,7 +212,7 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
                     </div>
                 </div>
 
-                {/* 4. Moral Selection (Optional) */}
+                {/* 5. Moral Selection (Optional) */}
                 <div className="space-y-4">
                     <label className="text-xl font-serif text-h-night flex justify-between">
                         <span>ما هي العبرة المطلوبة؟</span>
@@ -209,7 +257,41 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
                     </div>
                 </div>
 
-                {/* 5. Dialect Switch */}
+                {/* 6. Story Length (New Feature) */}
+                <div className="space-y-4 border-t border-gray-200 pt-6">
+                    <label className="text-xl font-serif text-h-night flex justify-between">
+                        <span>وقت الحكاية</span>
+                        <span className="text-h-gold font-bold font-sans text-lg">{lengthOptions[length].label}</span>
+                    </label>
+                    <div className="flex bg-gray-100 p-1 rounded-2xl relative isolate">
+                        {(['short', 'medium', 'long'] as StoryLength[]).map((l) => {
+                            const Icon = lengthOptions[l].icon;
+                            const isSelected = length === l;
+                            return (
+                                <button
+                                    key={l}
+                                    onClick={() => setLength(l)}
+                                    className={`flex-1 relative z-10 py-3 flex flex-col items-center justify-center gap-1 transition-colors ${isSelected ? 'text-h-night' : 'text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    {isSelected && (
+                                        <motion.div
+                                            layoutId="length-selector-bg"
+                                            className="absolute inset-0 bg-white rounded-xl shadow-sm border border-gray-200 -z-10"
+                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                        />
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                        <Icon size={18} className={isSelected ? 'text-h-gold' : ''} />
+                                        <span className={`font-serif font-bold ${isSelected ? 'text-base' : 'text-sm'}`}>{lengthOptions[l].label}</span>
+                                    </div>
+                                    <span className="text-xs font-sans opacity-70 hidden md:block">{lengthOptions[l].sub}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                {/* 7. Dialect Switch */}
                 <div className="flex items-center justify-between bg-h-stone p-4 rounded-2xl border border-gray-200">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-h-night rounded-full text-white">
@@ -237,7 +319,7 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
                 </div>
 
                 {/* Generate Button */}
-                <div className="pt-4">
+                <div className="pt-2">
                     <motion.button
                         disabled={!name}
                         onClick={handleSubmit}
