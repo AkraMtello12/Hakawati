@@ -21,11 +21,11 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
   const [length, setLength] = useState<StoryLength>('medium');
 
   const morals = [
-    { id: 'kindness', label: 'اللطف', icon: Heart, prompt: 'kindness and compassion' },
-    { id: 'honesty', label: 'الصدق', icon: Lightbulb, prompt: 'honesty and truth' },
-    { id: 'saving', label: 'التوفير', icon: Droplets, prompt: 'saving resources' },
-    { id: 'friendship', label: 'الصداقة', icon: Users, prompt: 'friendship and loyalty' },
-    { id: 'optimism', label: 'التفاؤل', icon: Smile, prompt: 'hope and optimism' },
+    { id: 'kindness', label: 'اللطف', icon: Heart, prompt: 'اللطف والرحمة' },
+    { id: 'honesty', label: 'الصدق', icon: Lightbulb, prompt: 'الصدق وقول الحقيقة' },
+    { id: 'saving', label: 'التوفير', icon: Droplets, prompt: 'أهمية التوفير وعدم الإسراف' },
+    { id: 'friendship', label: 'الصداقة', icon: Users, prompt: 'قيمة الصداقة والوفاء' },
+    { id: 'optimism', label: 'التفاؤل', icon: Smile, prompt: 'الأمل والتفاؤل' },
   ];
 
   const sidekicks = [

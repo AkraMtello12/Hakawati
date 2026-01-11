@@ -1,13 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, BookOpen, LogOut } from 'lucide-react';
+import { Sparkles, BookOpen, LogOut, UserCircle } from 'lucide-react';
 import { auth } from '../firebase';
 
 interface HeroProps {
   onStart: () => void;
+  onOpenProfile: () => void;
 }
 
-const Hero: React.FC<HeroProps> = ({ onStart }) => {
+const Hero: React.FC<HeroProps> = ({ onStart, onOpenProfile }) => {
   return (
     <div className="relative w-full h-screen overflow-hidden bg-h-night flex items-center justify-center">
       {/* Dynamic Background Elements */}
@@ -17,14 +18,21 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
       <div className="absolute top-0 right-0 w-96 h-96 bg-h-gold opacity-20 blur-[120px] rounded-full mix-blend-screen animate-pulse"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500 opacity-10 blur-[120px] rounded-full mix-blend-screen"></div>
 
-      {/* Logout Button */}
-      <div className="absolute top-6 left-6 z-20">
+      {/* Header Buttons */}
+      <div className="absolute top-6 left-6 z-20 flex items-center gap-3">
+        <button 
+            onClick={onOpenProfile}
+            className="group flex items-center gap-2 px-4 py-2 bg-h-gold/20 border border-h-gold/30 rounded-full text-h-gold-light hover:text-white hover:bg-h-gold/30 transition-all backdrop-blur-md"
+        >
+            <UserCircle size={20} />
+            <span className="font-sans text-sm font-medium">ملف المغامر</span>
+        </button>
+
         <button 
             onClick={() => auth.signOut()}
-            className="group flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-all backdrop-blur-md"
+            className="group flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-gray-300 hover:text-red-400 hover:bg-white/10 transition-all backdrop-blur-md"
         >
             <LogOut size={18} />
-            <span className="font-sans text-sm font-medium">تسجيل خروج</span>
         </button>
       </div>
 

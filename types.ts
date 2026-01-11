@@ -63,5 +63,6 @@ export enum AppState {
   HERO = 'hero',
   INPUT = 'input',
   GENERATING = 'generating',
-  READING = 'reading'
+  READING = 'reading',
+  PROFILE = 'profile'
 }

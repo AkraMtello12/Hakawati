@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Archive, Settings, LogOut, Users, BookOpen, Server, Search, Loader2, AlertTriangle, Filter, Save, Shield, Globe, FileSpreadsheet, Trash2, Download, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Archive, Settings, LogOut, Users, BookOpen, Server, Search, Loader2, AlertTriangle, Filter, Save, Shield, Globe, FileSpreadsheet, Trash2, Download, AlertCircle, PieChart, BarChart } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, limit, writeBatch, doc } from 'firebase/firestore';
 
@@ -20,6 +20,55 @@ interface StoryDoc {
 }
 
 type TabView = 'overview' | 'archive' | 'users' | 'settings';
+
+// Helper Components defined outside to prevent re-renders
+const SidebarItem: React.FC<{ id: TabView, icon: any, label: string, activeTab: TabView, setActiveTab: (id: TabView) => void }> = ({ id, icon: Icon, label, activeTab, setActiveTab }) => (
+    <button 
+        onClick={() => setActiveTab(id)}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-sans font-medium ${
+            activeTab === id 
+            ? 'bg-white/10 text-h-gold shadow-lg border border-white/5' 
+            : 'text-gray-400 hover:text-white hover:bg-white/5'
+        }`}
+    >
+        <Icon size={20} />
+        {label}
+    </button>
+);
+
+const StatCard = ({ icon: Icon, label, value, colorClass, subText, loading }: any) => (
+    <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4"
+    >
+        <div className={`p-4 rounded-xl ${colorClass}`}>
+            <Icon size={24} />
+        </div>
+        <div>
+            <p className="text-sm text-gray-500 font-sans">{label}</p>
+            <h3 className="text-2xl font-bold text-gray-800">{loading ? '...' : value}</h3>
+            {subText && <p className="text-xs text-gray-400 mt-1">{subText}</p>}
+        </div>
+    </motion.div>
+);
+
+const StatProgressBar: React.FC<{ label: string, percent: number, colorClass: string }> = ({ label, percent, colorClass }) => (
+    <div className="mb-4">
+        <div className="flex justify-between text-sm font-sans mb-1 text-gray-700">
+            <span>{label}</span>
+            <span className="font-bold">{percent}%</span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+            <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${percent}%` }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className={`h-2.5 rounded-full ${colorClass}`} 
+            />
+        </div>
+    </div>
+);
 
 const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<TabView>('overview');
@@ -107,20 +156,60 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         }
         const user = userMap.get(email)!;
         user.count += 1;
-        // Simple logic: since stories are ordered by desc, the first time we see a user is their latest activity
     });
 
     return Array.from(userMap.values());
+  }, [stories]);
+
+  // Statistics: Worlds & Sidekicks
+  const stats = useMemo(() => {
+    const worldCounts: Record<string, number> = {};
+    const sidekickCounts: Record<string, number> = {};
+    let totalStories = stories.length;
+
+    stories.forEach(s => {
+        // Count Worlds
+        const w = s.params?.world;
+        if (w) {
+             let label = 'غير محدد';
+             if (w.includes('adventure')) label = 'عالم المغامرة';
+             else if (w.includes('fantasy') || w.includes('magic')) label = 'عالم الخيال';
+             else if (w.includes('comedy') || w.includes('funny')) label = 'عالم الضحك';
+             else if (w.includes('space') || w.includes('aliens')) label = 'عالم الفضاء';
+             else label = 'أخرى';
+             
+             worldCounts[label] = (worldCounts[label] || 0) + 1;
+        }
+
+        // Count Sidekicks
+        const k = s.params?.sidekick;
+        if (k) {
+             let label = k; 
+             if (k === 'cat') label = 'قطة';
+             else if (k === 'bird') label = 'عصفور';
+             else if (k === 'turtle') label = 'سلحفاة';
+             
+             sidekickCounts[label] = (sidekickCounts[label] || 0) + 1;
+        }
+    });
+
+    const calculatePercent = (counts: Record<string, number>) => {
+        return Object.entries(counts)
+            .map(([label, count]) => ({ label, count, percent: Math.round((count / (totalStories || 1)) * 100) }))
+            .sort((a, b) => b.count - a.count);
+    };
+
+    return {
+        worlds: calculatePercent(worldCounts),
+        sidekicks: calculatePercent(sidekickCounts)
+    };
   }, [stories]);
 
 
   // --- Actions ---
 
   const exportToCSV = () => {
-    // 1. Define Headers
     const headers = ['المعرف', 'اسم الطفل', 'عنوان القصة', 'تاريخ الإنشاء', 'البريد الإلكتروني', 'العمر', 'الجنس', 'العبرة'];
-    
-    // 2. Map Data
     const rows = stories.map(story => [
         story.id,
         story.child,
@@ -132,11 +221,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         story.params?.moral || 'N/A'
     ]);
 
-    // 3. Construct CSV Content with BOM for Arabic support in Excel
     const csvContent = '\uFEFF' + 
         [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
 
-    // 4. Create Blob and Download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -157,7 +244,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     try {
         const batch = writeBatch(db);
         
-        // Firestore batch limit is 500, but we are fetching 100 in this dashboard
         stories.forEach(story => {
             const docRef = doc(db, "stories", story.id);
             batch.delete(docRef);
@@ -165,7 +251,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
         await batch.commit();
         setShowDeleteConfirm(false);
-        // Alert handled by UI state updates naturally via onSnapshot
     } catch (err: any) {
         console.error("Delete Error", err);
         alert("فشل الحذف: " + err.message);
@@ -173,39 +258,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         setIsDeleting(false);
     }
   };
-
-  // --- Helper Components for Tabs ---
-
-  const SidebarItem = ({ id, icon: Icon, label }: { id: TabView, icon: any, label: string }) => (
-    <button 
-        onClick={() => setActiveTab(id)}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-sans font-medium ${
-            activeTab === id 
-            ? 'bg-white/10 text-h-gold shadow-lg border border-white/5' 
-            : 'text-gray-400 hover:text-white hover:bg-white/5'
-        }`}
-    >
-        <Icon size={20} />
-        {label}
-    </button>
-  );
-
-  const StatCard = ({ icon: Icon, label, value, colorClass, subText }: any) => (
-    <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4"
-    >
-        <div className={`p-4 rounded-xl ${colorClass}`}>
-            <Icon size={24} />
-        </div>
-        <div>
-            <p className="text-sm text-gray-500 font-sans">{label}</p>
-            <h3 className="text-2xl font-bold text-gray-800">{loading ? '...' : value}</h3>
-            {subText && <p className="text-xs text-gray-400 mt-1">{subText}</p>}
-        </div>
-    </motion.div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 flex" dir="rtl">
@@ -223,10 +275,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          <SidebarItem id="overview" icon={LayoutDashboard} label="نظرة عامة" />
-          <SidebarItem id="archive" icon={Archive} label="أرشيف الحكايات" />
-          <SidebarItem id="users" icon={Users} label="المستخدمين" />
-          <SidebarItem id="settings" icon={Settings} label="الإعدادات" />
+          <SidebarItem id="overview" icon={LayoutDashboard} label="نظرة عامة" activeTab={activeTab} setActiveTab={setActiveTab} />
+          <SidebarItem id="archive" icon={Archive} label="أرشيف الحكايات" activeTab={activeTab} setActiveTab={setActiveTab} />
+          <SidebarItem id="users" icon={Users} label="المستخدمين" activeTab={activeTab} setActiveTab={setActiveTab} />
+          <SidebarItem id="settings" icon={Settings} label="الإعدادات" activeTab={activeTab} setActiveTab={setActiveTab} />
         </nav>
 
         <div className="p-4 border-t border-white/10">
@@ -252,7 +304,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
              {activeTab === 'settings' && 'إعدادات النظام'}
           </h2>
           <div className="flex items-center gap-4">
-             {/* Global Search available in header usually, but specific per tab is better */}
              <div className="w-10 h-10 rounded-full bg-h-night text-white flex items-center justify-center font-bold font-serif">
                 م
              </div>
@@ -283,18 +334,21 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                         exit={{ opacity: 0, x: -20 }}
                         className="space-y-8"
                     >
+                        {/* Top Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <StatCard 
                                 icon={BookOpen} 
                                 label="إجمالي الحكايات" 
                                 value={stories.length} 
                                 colorClass="bg-blue-50 text-blue-600"
+                                loading={loading}
                             />
                             <StatCard 
                                 icon={Users} 
                                 label="المستخدمين النشطين" 
                                 value={uniqueUsers.length} 
                                 colorClass="bg-purple-50 text-purple-600"
+                                loading={loading}
                             />
                              <StatCard 
                                 icon={Server} 
@@ -302,13 +356,53 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                 value="ممتازة" 
                                 subText="متصل بـ Gemini 1.5 Pro"
                                 colorClass="bg-green-50 text-green-600"
+                                loading={loading}
                             />
+                        </div>
+
+                        {/* Analytics Section */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Worlds Stats */}
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h3 className="text-lg font-serif text-gray-800 mb-4 flex items-center gap-2">
+                                    <PieChart size={20} className="text-h-gold" />
+                                    أكثر العوالم اختياراً
+                                </h3>
+                                <div className="space-y-4">
+                                    {stats.worlds.length > 0 ? stats.worlds.slice(0, 4).map((w) => (
+                                        <StatProgressBar 
+                                            key={w.label} 
+                                            label={w.label} 
+                                            percent={w.percent} 
+                                            colorClass="bg-gradient-to-r from-purple-400 to-purple-600" 
+                                        />
+                                    )) : <p className="text-sm text-gray-400">لا توجد بيانات كافية</p>}
+                                </div>
+                            </div>
+
+                            {/* Sidekicks Stats */}
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h3 className="text-lg font-serif text-gray-800 mb-4 flex items-center gap-2">
+                                    <BarChart size={20} className="text-blue-500" />
+                                    أكثر الأصدقاء شعبية
+                                </h3>
+                                <div className="space-y-4">
+                                    {stats.sidekicks.length > 0 ? stats.sidekicks.slice(0, 4).map((s) => (
+                                        <StatProgressBar 
+                                            key={s.label} 
+                                            label={s.label} 
+                                            percent={s.percent} 
+                                            colorClass="bg-gradient-to-r from-blue-400 to-blue-600" 
+                                        />
+                                    )) : <p className="text-sm text-gray-400">لا توجد بيانات كافية</p>}
+                                </div>
+                            </div>
                         </div>
 
                         {/* Recent Activity Table (Short) */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                                <h3 className="text-xl font-serif text-gray-800">أحدث 5 حكايات</h3>
+                                <h3 className="text-xl font-serif text-gray-800">أحدث الحكايات</h3>
                             </div>
                             <table className="w-full text-right">
                                 <thead className="bg-gray-50 text-gray-500 font-sans text-sm">
@@ -509,7 +603,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                             </div>
                         </div>
 
-                        {/* Section 3: Data Management (New) */}
+                        {/* Section 3: Data Management */}
                         <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
                              <h3 className="text-xl font-serif text-h-night mb-6 flex items-center gap-2">
                                 <FileSpreadsheet className="text-h-gold" />

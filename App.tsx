@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import StoryEngine from './components/StoryEngine';
 import Loading from './components/Loading';
 import StoryBook from './components/StoryBook';
+import UserProfile from './components/UserProfile';
 import { AppState, StoryParams, GeneratedStory } from './types';
 import { generateStoryText } from './services/geminiService';
 import { auth, db } from './firebase';
@@ -50,6 +51,14 @@ const App: React.FC = () => {
     setAppState(AppState.INPUT);
   };
 
+  const handleOpenProfile = () => {
+    setAppState(AppState.PROFILE);
+  };
+
+  const handleBackToHero = () => {
+    setAppState(AppState.HERO);
+  };
+
   const handleGenerate = async (params: StoryParams) => {
     setAppState(AppState.GENERATING);
     setError(null);
@@ -67,10 +76,14 @@ const App: React.FC = () => {
                 createdAt: serverTimestamp(),
                 userId: user.uid,
                 userEmail: user.email,
+                badge: generatedStory.moralName, // SAVE THE BADGE FOR PROFILE
+                proverb: generatedStory.proverb, // SAVE THE PROVERB FOR PROFILE BUNDLE
                 params: {
                     age: params.age,
                     gender: params.gender,
-                    moral: params.moral
+                    moral: params.moral,
+                    world: params.world, // For Dashboard Stats
+                    sidekick: params.sidekick // For Dashboard Stats
                 }
             });
         } catch (dbError: any) {
@@ -127,8 +140,15 @@ const App: React.FC = () => {
         {/* Regular User Flow */}
         {appState === AppState.HERO && (
           <motion.div key="hero" exit={{ opacity: 0 }}>
-            <Hero onStart={handleStart} />
+            <Hero onStart={handleStart} onOpenProfile={handleOpenProfile} />
           </motion.div>
+        )}
+
+        {/* User Profile */}
+        {appState === AppState.PROFILE && user && (
+            <motion.div key="profile" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
+                <UserProfile user={user} onBack={handleBackToHero} />
+            </motion.div>
         )}
 
         {appState === AppState.INPUT && (
