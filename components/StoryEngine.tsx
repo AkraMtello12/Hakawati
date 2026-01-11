@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Sparkles, Heart, Lightbulb, Droplets, Smile, Volume2, ScrollText, Edit3, Users, Map, Castle, PartyPopper, Rocket, Zap, BookOpen, Hourglass, LogOut } from 'lucide-react';
+import { User, Sparkles, Heart, Lightbulb, Droplets, Smile, Volume2, ScrollText, Edit3, Users, Map, Castle, PartyPopper, Rocket, Zap, BookOpen, Hourglass, LogOut, ArrowRight } from 'lucide-react';
 import { StoryParams, StoryDialect, Gender, StoryLength } from '../types';
 import { auth } from '../firebase';
 
 interface StoryEngineProps {
   onSubmit: (params: StoryParams) => void;
+  onBack: () => void;
 }
 
-const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
+const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit, onBack }) => {
   const [name, setName] = useState('');
   const [gender, setGender] = useState<Gender>('boy');
   const [age, setAge] = useState(6);
@@ -89,7 +90,18 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
         {/* Background Texture */}
         <div className="absolute inset-0 bg-pattern-islamic opacity-5 pointer-events-none" />
 
-        {/* Logout Button */}
+        {/* Back Button (Top Right) */}
+        <div className="absolute top-6 right-6 z-20">
+            <button 
+                onClick={onBack}
+                className="group flex items-center gap-2 px-4 py-2 bg-white/50 border border-gray-200 rounded-full text-gray-500 hover:text-h-gold hover:bg-white transition-all shadow-sm backdrop-blur-md"
+            >
+                <ArrowRight size={18} />
+                <span className="font-sans text-sm font-medium">رجوع</span>
+            </button>
+        </div>
+
+        {/* Logout Button (Top Left) */}
         <div className="absolute top-6 left-6 z-20">
             <button 
                 onClick={() => auth.signOut()}

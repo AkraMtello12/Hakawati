@@ -158,7 +158,7 @@ const App: React.FC = () => {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }}
           >
-            <StoryEngine onSubmit={handleGenerate} />
+            <StoryEngine onSubmit={handleGenerate} onBack={handleBackToHero} />
             {error && (
                 <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg z-50 text-center w-11/12 max-w-md">
                     {error}
