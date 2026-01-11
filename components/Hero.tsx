@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, BookOpen } from 'lucide-react';
+import { Sparkles, BookOpen, LogOut } from 'lucide-react';
+import { auth } from '../firebase';
 
 interface HeroProps {
   onStart: () => void;
@@ -15,6 +16,17 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
       {/* Decorative gradients */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-h-gold opacity-20 blur-[120px] rounded-full mix-blend-screen animate-pulse"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500 opacity-10 blur-[120px] rounded-full mix-blend-screen"></div>
+
+      {/* Logout Button */}
+      <div className="absolute top-6 left-6 z-20">
+        <button 
+            onClick={() => auth.signOut()}
+            className="group flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-all backdrop-blur-md"
+        >
+            <LogOut size={18} />
+            <span className="font-sans text-sm font-medium">تسجيل خروج</span>
+        </button>
+      </div>
 
       {/* Main Content */}
       <div className="z-10 text-center px-6 max-w-4xl w-full flex flex-col items-center">

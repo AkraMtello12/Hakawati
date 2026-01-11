@@ -58,6 +58,8 @@ export interface GeneratedStory {
 }
 
 export enum AppState {
+  AUTH = 'auth',
+  DASHBOARD = 'dashboard',
   HERO = 'hero',
   INPUT = 'input',
   GENERATING = 'generating',

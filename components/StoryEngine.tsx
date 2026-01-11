@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Sparkles, Heart, Lightbulb, Droplets, Smile, Volume2, ScrollText, Edit3, Users, Map, Castle, PartyPopper, Rocket, Zap, BookOpen, Hourglass } from 'lucide-react';
+import { User, Sparkles, Heart, Lightbulb, Droplets, Smile, Volume2, ScrollText, Edit3, Users, Map, Castle, PartyPopper, Rocket, Zap, BookOpen, Hourglass, LogOut } from 'lucide-react';
 import { StoryParams, StoryDialect, Gender, StoryLength } from '../types';
+import { auth } from '../firebase';
 
 interface StoryEngineProps {
   onSubmit: (params: StoryParams) => void;
@@ -46,6 +47,8 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
     long: { label: 'قصة ملحمية', icon: Hourglass, sub: 'بتفاصيل غنية' }
   };
 
+  const lengthOptionsKeys = Object.keys(lengthOptions) as StoryLength[];
+
   const handleMoralSelect = (id: string, prompt: string) => {
     if (selectedMoralId === id) {
       setSelectedMoralId('');
@@ -85,6 +88,17 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
     <div className="min-h-screen bg-h-stone flex items-center justify-center p-4 relative overflow-hidden">
         {/* Background Texture */}
         <div className="absolute inset-0 bg-pattern-islamic opacity-5 pointer-events-none" />
+
+        {/* Logout Button */}
+        <div className="absolute top-6 left-6 z-20">
+            <button 
+                onClick={() => auth.signOut()}
+                className="group flex items-center gap-2 px-4 py-2 bg-white/50 border border-gray-200 rounded-full text-gray-500 hover:text-red-500 hover:bg-white transition-all shadow-sm backdrop-blur-md"
+            >
+                <LogOut size={18} />
+                <span className="font-sans text-sm font-medium">تسجيل خروج</span>
+            </button>
+        </div>
 
         <motion.div 
             initial={{ opacity: 0, y: 50 }}
@@ -264,7 +278,7 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit }) => {
                         <span className="text-h-gold font-bold font-sans text-lg">{lengthOptions[length].label}</span>
                     </label>
                     <div className="flex bg-gray-100 p-1 rounded-2xl relative isolate">
-                        {(['short', 'medium', 'long'] as StoryLength[]).map((l) => {
+                        {lengthOptionsKeys.map((l) => {
                             const Icon = lengthOptions[l].icon;
                             const isSelected = length === l;
                             return (

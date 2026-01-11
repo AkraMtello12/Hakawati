@@ -25,6 +25,15 @@ const MORAL_IMAGES: Record<string, string> = {
   optimism: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=1000&auto=format&fit=crop", 
 };
 
+// Helper function to handle timeouts
+const timeoutPromise = (ms: number) => {
+  return new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error("REQUEST_TIMEOUT"));
+    }, ms);
+  });
+};
+
 export const generateStoryText = async (params: StoryParams): Promise<GeneratedStory> => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) throw new Error("API Key missing");
@@ -89,72 +98,76 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        safetySettings: SAFETY_SETTINGS,
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            moralName: { type: Type.STRING, description: "Short Arabic name of the moral for the badge" },
-            pages: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  text: { type: Type.STRING },
-                  imagePrompt: { type: Type.STRING }
-                },
-                required: ["text", "imagePrompt"]
-              }
-            },
-            dictionary: {
+    // Race between the API call and a 50-second timeout
+    const response: any = await Promise.race([
+      ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          responseMimeType: "application/json",
+          safetySettings: SAFETY_SETTINGS,
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              moralName: { type: Type.STRING, description: "Short Arabic name of the moral for the badge" },
+              pages: {
                 type: Type.ARRAY,
                 items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        word: { type: Type.STRING, description: "The exact word as it appears in the text" },
-                        definition: { type: Type.STRING, description: "Simple definition in Arabic" }
-                    },
-                    required: ["word", "definition"]
+                  type: Type.OBJECT,
+                  properties: {
+                    text: { type: Type.STRING },
+                    imagePrompt: { type: Type.STRING }
+                  },
+                  required: ["text", "imagePrompt"]
                 }
+              },
+              dictionary: {
+                  type: Type.ARRAY,
+                  items: {
+                      type: Type.OBJECT,
+                      properties: {
+                          word: { type: Type.STRING, description: "The exact word as it appears in the text" },
+                          definition: { type: Type.STRING, description: "Simple definition in Arabic" }
+                      },
+                      required: ["word", "definition"]
+                  }
+              },
+              question: {
+                  type: Type.OBJECT,
+                  properties: {
+                      text: { type: Type.STRING, description: "The question asking what the character should do" },
+                      options: {
+                          type: Type.ARRAY,
+                          items: {
+                              type: Type.OBJECT,
+                              properties: {
+                                  text: { type: Type.STRING, description: "The action to take" },
+                                  isCorrect: { type: Type.BOOLEAN },
+                                  feedback: { type: Type.STRING, description: "Short feedback message explaining why this is right or wrong" }
+                              },
+                              required: ["text", "isCorrect", "feedback"]
+                          }
+                      }
+                  },
+                  required: ["text", "options"]
+              },
+              proverb: {
+                  type: Type.OBJECT,
+                  properties: {
+                      text: { type: Type.STRING, description: "The proverb text in Arabic" },
+                      explanation: { type: Type.STRING, description: "Simple explanation for a child" }
+                  },
+                  required: ["text", "explanation"]
+              }
             },
-            question: {
-                type: Type.OBJECT,
-                properties: {
-                    text: { type: Type.STRING, description: "The question asking what the character should do" },
-                    options: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                text: { type: Type.STRING, description: "The action to take" },
-                                isCorrect: { type: Type.BOOLEAN },
-                                feedback: { type: Type.STRING, description: "Short feedback message explaining why this is right or wrong" }
-                            },
-                            required: ["text", "isCorrect", "feedback"]
-                        }
-                    }
-                },
-                required: ["text", "options"]
-            },
-            proverb: {
-                type: Type.OBJECT,
-                properties: {
-                    text: { type: Type.STRING, description: "The proverb text in Arabic" },
-                    explanation: { type: Type.STRING, description: "Simple explanation for a child" }
-                },
-                required: ["text", "explanation"]
-            }
-          },
-          required: ["title", "pages", "dictionary", "question", "moralName", "proverb"]
+            required: ["title", "pages", "dictionary", "question", "moralName", "proverb"]
+          }
         }
-      }
-    });
+      }),
+      timeoutPromise(50000) // 50 seconds timeout
+    ]);
 
     const text = response.text;
     if (!text) throw new Error("No response from AI");
@@ -163,8 +176,11 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
     storyData.moralId = params.moralId; 
     
     return storyData;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating story:", error);
+    if (error.message === "REQUEST_TIMEOUT") {
+      throw new Error("تأخر الحكواتي في الرد قليلاً، يرجى المحاولة مرة أخرى.");
+    }
     throw error;
   }
 };
