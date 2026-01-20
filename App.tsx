@@ -7,7 +7,7 @@ import StoryEngine from './components/StoryEngine';
 import Loading from './components/Loading';
 import StoryBook from './components/StoryBook';
 import UserProfile from './components/UserProfile';
-import { AppState, StoryParams, GeneratedStory } from './types';
+import { AppState, StoryParams, GeneratedStory, Gender } from './types';
 import { generateStoryText } from './services/geminiService';
 import { auth, db } from './firebase';
 import * as Auth from 'firebase/auth';
@@ -18,6 +18,8 @@ const ADMIN_EMAIL = "akramtello12@gmail.com";
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.AUTH); // Default to Auth
   const [story, setStory] = useState<GeneratedStory | null>(null);
+  const [childName, setChildName] = useState<string>(""); // Store child name for personalized ending
+  const [gender, setGender] = useState<Gender>('boy'); // Store gender for personalized ending
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<Auth.User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -62,6 +64,9 @@ const App: React.FC = () => {
   const handleGenerate = async (params: StoryParams) => {
     setAppState(AppState.GENERATING);
     setError(null);
+    setChildName(params.childName); // Save the name
+    setGender(params.gender); // Save the gender
+
     try {
       const generatedStory = await generateStoryText(params);
       
@@ -176,7 +181,7 @@ const App: React.FC = () => {
 
         {appState === AppState.READING && story && (
           <motion.div key="story" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <StoryBook story={story} onReset={handleReset} />
+            <StoryBook story={story} childName={childName} gender={gender} onReset={handleReset} />
           </motion.div>
         )}
       </AnimatePresence>

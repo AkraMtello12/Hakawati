@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft, Home, Volume2, StopCircle, Loader2, Image as ImageIcon, Heart, Medal, BookOpen, Star, HelpCircle, Gift, CheckCircle, XCircle, ArrowRight, Package, Lightbulb } from 'lucide-react';
-import { GeneratedStory } from '../types';
+import { GeneratedStory, Gender } from '../types';
 import { generateSpeech } from '../services/geminiService';
 
 interface StoryBookProps {
   story: GeneratedStory;
+  childName: string;
+  gender: Gender;
   onReset: () => void;
 }
 
 const HAKAWATI_IMAGE_URL = "https://i.postimg.cc/nrFchMKp/Gemini-Generated-Image-a558hxa558hxa558.png";
 
-const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
+const StoryBook: React.FC<StoryBookProps> = ({ story, childName, gender, onReset }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [showInteraction, setShowInteraction] = useState(false);
   const [interactionCompleted, setInteractionCompleted] = useState(false);
@@ -19,6 +21,7 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
   
   // Bundle / Proverb State
   const [showBundleModal, setShowBundleModal] = useState(false);
+  const [bundleViewed, setBundleViewed] = useState(false); // Track if user has seen the bundle
   
   // Interaction Feedback State
   const [feedback, setFeedback] = useState<{ isCorrect: boolean; message: string } | null>(null);
@@ -144,6 +147,11 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
       }
   };
 
+  const handleCloseBundle = () => {
+    setShowBundleModal(false);
+    setBundleViewed(true);
+  };
+
   // --- Magic Dictionary Renderer ---
   const renderTextWithDictionary = (text: string) => {
     const dictWords = story.dictionary.map(d => d.word);
@@ -185,6 +193,10 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
 
   // --- Badge View (End Screen) ---
   if (showBadge) {
+      // Gender-aware text
+      const congratsTitle = gender === 'girl' ? `أحسنتِ يا ${childName}!` : `أحسنتَ يا ${childName}!`;
+      const badgeSubtitle = gender === 'girl' ? "لقد حصلتِ على وسام" : "لقد حصلتَ على وسام";
+
       return (
         <div className="min-h-screen bg-h-night flex flex-col items-center justify-center p-4 relative overflow-hidden">
              {/* Background Effects */}
@@ -206,10 +218,10 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
                 </div>
                 
                 <div className="flex flex-col items-center gap-2 w-full">
-                    <h2 className="text-4xl font-serif text-h-night font-bold">أحسنت يا بطل!</h2>
+                    <h2 className="text-4xl font-serif text-h-night font-bold">{congratsTitle}</h2>
                     
                     <div className="flex flex-col items-center mt-2">
-                         <span className="text-gray-500 font-sans text-lg mb-2">لقد حصلت على وسام الحكمة</span>
+                         <span className="text-gray-500 font-sans text-lg mb-2">{badgeSubtitle}</span>
                         <div className="bg-h-gold/10 border border-h-gold/30 px-10 py-3 rounded-2xl shadow-sm">
                             <h3 className="text-3xl font-serif text-h-gold font-bold">{story.moralName}</h3>
                         </div>
@@ -227,6 +239,9 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
         </div>
       );
   }
+
+  const isLastPage = currentPage === story.pages.length - 1;
+  const giftButtonText = gender === 'girl' ? "استلمي هديتك" : "استلم هديتك";
 
   // --- Main Render ---
   return (
@@ -354,7 +369,7 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
         <div className="flex gap-4 items-center">
             
             {/* Hakawati Bundle Button (Only on Last Page) */}
-            {currentPage === story.pages.length - 1 && (
+            {isLastPage && (
                 <motion.button
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -374,23 +389,26 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
             )}
 
             {/* Next / Claim Gift Button */}
-            <button 
-                onClick={nextPage} 
-                className={`group rounded-full transition-all flex items-center gap-2 shadow-lg ${
-                    currentPage === story.pages.length - 1
-                    ? 'bg-gradient-to-r from-h-gold to-yellow-600 px-8 py-4 hover:scale-105 shadow-h-gold/50'
-                    : 'p-4 bg-h-gold hover:bg-yellow-600 shadow-h-gold/30'
-                } text-white`}
-            >
-                {(currentPage === story.pages.length - 1) ? (
-                    <>
-                        <span className="font-serif text-xl">استلم هديتك</span>
-                        <Gift size={24} className="animate-bounce" />
-                    </>
-                ) : (
-                    <ChevronLeft size={32} />
-                )}
-            </button>
+            {/* Show if NOT last page OR (Is last page AND bundle has been viewed) */}
+            {(!isLastPage || bundleViewed) && (
+                <button 
+                    onClick={nextPage} 
+                    className={`group rounded-full transition-all flex items-center gap-2 shadow-lg ${
+                        isLastPage
+                        ? 'bg-gradient-to-r from-h-gold to-yellow-600 px-8 py-4 hover:scale-105 shadow-h-gold/50 animate-in zoom-in duration-300'
+                        : 'p-4 bg-h-gold hover:bg-yellow-600 shadow-h-gold/30'
+                    } text-white`}
+                >
+                    {isLastPage ? (
+                        <>
+                            <span className="font-serif text-xl">{giftButtonText}</span>
+                            <Gift size={24} className="animate-bounce" />
+                        </>
+                    ) : (
+                        <ChevronLeft size={32} />
+                    )}
+                </button>
+            )}
         </div>
       </div>
 
@@ -403,7 +421,7 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    onClick={() => setShowBundleModal(false)}
+                    onClick={handleCloseBundle}
                     className="absolute inset-0 bg-h-night/70 backdrop-blur-md cursor-pointer"
                 />
 
@@ -436,7 +454,7 @@ const StoryBook: React.FC<StoryBookProps> = ({ story, onReset }) => {
                     </div>
 
                     <button 
-                        onClick={() => setShowBundleModal(false)}
+                        onClick={handleCloseBundle}
                         className="px-8 py-3 bg-h-night text-white rounded-xl font-serif text-lg hover:bg-gray-800 transition-all w-full"
                     >
                         شكراً يا حكواتي
