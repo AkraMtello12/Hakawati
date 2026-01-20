@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Award, BookOpen, Star, User, Loader2, Package, Quote, Edit2, Check, X } from 'lucide-react';
 import { db, auth } from '../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { updateProfile } from 'firebase/auth';
+import * as Auth from 'firebase/auth';
 
 interface UserProfileProps {
   user: { email: string | null; uid: string; displayName?: string | null };
@@ -66,7 +66,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onBack }) => {
     
     setIsSavingName(true);
     try {
-        await updateProfile(auth.currentUser, {
+        await Auth.updateProfile(auth.currentUser, {
             displayName: displayName
         });
         setIsEditingName(false);

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Archive, Settings, LogOut, Users, BookOpen, Server, Search, Loader2, AlertTriangle, Filter, Save, Shield, Globe, FileSpreadsheet, Trash2, Download, AlertCircle, PieChart, BarChart } from 'lucide-react';
+import { LayoutDashboard, Archive, Settings, LogOut, Users, BookOpen, Server, Search, Loader2, AlertTriangle, Filter, Save, Shield, Globe, FileSpreadsheet, Trash2, Download, AlertCircle, PieChart, BarChart, Heart, Clock } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, limit, writeBatch, doc } from 'firebase/firestore';
 
@@ -17,6 +17,7 @@ interface StoryDoc {
     userEmail?: string;
     rawDate?: any; // For sorting if needed
     params?: any;
+    badge?: string; // The generated moral name
 }
 
 type TabView = 'overview' | 'archive' | 'users' | 'settings';
@@ -111,7 +112,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 status: data.status || "مكتمل",
                 userEmail: data.userEmail,
                 rawDate: data.createdAt,
-                params: data.params
+                params: data.params,
+                badge: data.badge // Fetch badge/moralName
             } as StoryDoc;
         });
         setStories(fetchedStories);
@@ -161,35 +163,78 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     return Array.from(userMap.values());
   }, [stories]);
 
-  // Statistics: Worlds & Sidekicks
+  // Statistics
   const stats = useMemo(() => {
-    const worldCounts: Record<string, number> = {};
-    const sidekickCounts: Record<string, number> = {};
+    // 1. Initialize Worlds with all options (REMOVED OTHER)
+    const worldCounts: Record<string, number> = {
+        'عالم المغامرة': 0,
+        'عالم الخيال': 0,
+        'عالم الضحك': 0,
+        'عالم الفضاء': 0
+    };
+
+    // 2. Initialize Sidekicks with all options
+    const sidekickCounts: Record<string, number> = {
+        'قطة': 0,
+        'عصفور': 0,
+        'سلحفاة': 0
+    };
+    
+    // Explicit initialization for Morals to ensure "Other" logic
+    const moralCounts: Record<string, number> = {
+        'اللطف': 0,
+        'الصدق': 0,
+        'التوفير': 0,
+        'الصداقة': 0,
+        'التفاؤل': 0,
+        'أخرى': 0
+    };
+
+    // Explicit initialization for Lengths to ensure all show up
+    const lengthCounts: Record<string, number> = {
+        'short': 0,
+        'medium': 0,
+        'long': 0
+    };
+
     let totalStories = stories.length;
 
     stories.forEach(s => {
         // Count Worlds
-        const w = s.params?.world;
+        const w = s.params?.world || '';
         if (w) {
-             let label = 'غير محدد';
-             if (w.includes('adventure')) label = 'عالم المغامرة';
-             else if (w.includes('fantasy') || w.includes('magic')) label = 'عالم الخيال';
-             else if (w.includes('comedy') || w.includes('funny')) label = 'عالم الضحك';
-             else if (w.includes('space') || w.includes('aliens')) label = 'عالم الفضاء';
-             else label = 'أخرى';
-             
-             worldCounts[label] = (worldCounts[label] || 0) + 1;
+             if (w.includes('adventure')) worldCounts['عالم المغامرة']++;
+             else if (w.includes('fantasy') || w.includes('magic')) worldCounts['عالم الخيال']++;
+             else if (w.includes('comedy') || w.includes('funny')) worldCounts['عالم الضحك']++;
+             else if (w.includes('space') || w.includes('aliens')) worldCounts['عالم الفضاء']++;
+             // Removed Else block for 'Other' world
         }
 
-        // Count Sidekicks
-        const k = s.params?.sidekick;
+        // Count Sidekicks - Robust check for ID (cat) or Label (قطة) for backward compatibility
+        const k = s.params?.sidekick || '';
         if (k) {
-             let label = k; 
-             if (k === 'cat') label = 'قطة';
-             else if (k === 'bird') label = 'عصفور';
-             else if (k === 'turtle') label = 'سلحفاة';
-             
-             sidekickCounts[label] = (sidekickCounts[label] || 0) + 1;
+             if (k === 'cat' || k === 'قطة') sidekickCounts['قطة']++;
+             else if (k === 'bird' || k === 'عصفور') sidekickCounts['عصفور']++;
+             else if (k === 'turtle' || k === 'سلحفاة') sidekickCounts['سلحفاة']++;
+        }
+
+        // Count Morals (Strict Grouping)
+        const m = s.params?.moral || s.badge || '';
+        if (m) {
+            if (m.includes('اللطف') || m.includes('kindness')) moralCounts['اللطف']++;
+            else if (m.includes('الصدق') || m.includes('honesty')) moralCounts['الصدق']++;
+            else if (m.includes('التوفير') || m.includes('saving')) moralCounts['التوفير']++;
+            else if (m.includes('الصداقة') || m.includes('friendship')) moralCounts['الصداقة']++;
+            else if (m.includes('التفاؤل') || m.includes('optimism')) moralCounts['التفاؤل']++;
+            else moralCounts['أخرى']++;
+        } else {
+            moralCounts['أخرى']++;
+        }
+
+        // Count Lengths (Strict keys)
+        const l = s.params?.length;
+        if (l && lengthCounts.hasOwnProperty(l)) {
+            lengthCounts[l]++;
         }
     });
 
@@ -199,9 +244,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             .sort((a, b) => b.count - a.count);
     };
 
+    // Custom formatting for lengths to ensure nice labels and specific order
+    const formattedLengths = [
+        { label: 'قصة كاملة', count: lengthCounts['medium'], percent: Math.round((lengthCounts['medium'] / (totalStories || 1)) * 100) },
+        { label: 'قصة سريعة', count: lengthCounts['short'], percent: Math.round((lengthCounts['short'] / (totalStories || 1)) * 100) },
+        { label: 'قصة ملحمية', count: lengthCounts['long'], percent: Math.round((lengthCounts['long'] / (totalStories || 1)) * 100) },
+    ];
+
     return {
         worlds: calculatePercent(worldCounts),
-        sidekicks: calculatePercent(sidekickCounts)
+        sidekicks: calculatePercent(sidekickCounts),
+        morals: calculatePercent(moralCounts), // Will now include "أخرى" and the main 5
+        lengths: formattedLengths
     };
   }, [stories]);
 
@@ -209,7 +263,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   // --- Actions ---
 
   const exportToCSV = () => {
-    const headers = ['المعرف', 'اسم الطفل', 'عنوان القصة', 'تاريخ الإنشاء', 'البريد الإلكتروني', 'العمر', 'الجنس', 'العبرة'];
+    const headers = ['المعرف', 'اسم الطفل', 'عنوان القصة', 'تاريخ الإنشاء', 'البريد الإلكتروني', 'العمر', 'الجنس', 'العبرة', 'الطول'];
     const rows = stories.map(story => [
         story.id,
         story.child,
@@ -218,7 +272,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         story.userEmail || 'N/A',
         story.params?.age || 'N/A',
         story.params?.gender || 'N/A',
-        story.params?.moral || 'N/A'
+        story.badge || story.params?.moral || 'N/A', // Prefer badge, fallback to params
+        story.params?.length || 'N/A'
     ]);
 
     const csvContent = '\uFEFF' + 
@@ -303,11 +358,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
              {activeTab === 'users' && 'سجل المستخدمين'}
              {activeTab === 'settings' && 'إعدادات النظام'}
           </h2>
-          <div className="flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-h-night text-white flex items-center justify-center font-bold font-serif">
-                م
-             </div>
-          </div>
+          {/* REMOVED: User Avatar Div */}
         </header>
 
         <main className="p-8 space-y-8">
@@ -360,8 +411,45 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                             />
                         </div>
 
-                        {/* Analytics Section */}
+                        {/* Analytics Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            
+                            {/* Morals Stats (NEW) */}
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h3 className="text-lg font-serif text-gray-800 mb-4 flex items-center gap-2">
+                                    <Heart size={20} className="text-red-500" />
+                                    أكثر العبر (شامل الآلي)
+                                </h3>
+                                <div className="space-y-4">
+                                    {stats.morals.length > 0 ? stats.morals.map((m) => (
+                                        <StatProgressBar 
+                                            key={m.label} 
+                                            label={m.label} 
+                                            percent={m.percent} 
+                                            colorClass={m.label === 'أخرى' ? "bg-gray-400" : "bg-gradient-to-r from-red-400 to-red-600"} 
+                                        />
+                                    )) : <p className="text-sm text-gray-400">لا توجد بيانات كافية</p>}
+                                </div>
+                            </div>
+
+                            {/* Length Stats (NEW) */}
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h3 className="text-lg font-serif text-gray-800 mb-4 flex items-center gap-2">
+                                    <Clock size={20} className="text-orange-500" />
+                                    تفضيلات وقت الحكاية
+                                </h3>
+                                <div className="space-y-4">
+                                    {stats.lengths.map((l) => (
+                                        <StatProgressBar 
+                                            key={l.label} 
+                                            label={l.label} 
+                                            percent={l.percent} 
+                                            colorClass="bg-gradient-to-r from-orange-400 to-orange-600" 
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+
                             {/* Worlds Stats */}
                             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                                 <h3 className="text-lg font-serif text-gray-800 mb-4 flex items-center gap-2">
@@ -369,14 +457,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                     أكثر العوالم اختياراً
                                 </h3>
                                 <div className="space-y-4">
-                                    {stats.worlds.length > 0 ? stats.worlds.slice(0, 4).map((w) => (
+                                    {stats.worlds.map((w) => (
                                         <StatProgressBar 
                                             key={w.label} 
                                             label={w.label} 
                                             percent={w.percent} 
-                                            colorClass="bg-gradient-to-r from-purple-400 to-purple-600" 
+                                            colorClass={w.label === 'أخرى' ? "bg-gray-400" : "bg-gradient-to-r from-purple-400 to-purple-600"} 
                                         />
-                                    )) : <p className="text-sm text-gray-400">لا توجد بيانات كافية</p>}
+                                    ))}
                                 </div>
                             </div>
 
@@ -387,44 +475,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                     أكثر الأصدقاء شعبية
                                 </h3>
                                 <div className="space-y-4">
-                                    {stats.sidekicks.length > 0 ? stats.sidekicks.slice(0, 4).map((s) => (
+                                    {stats.sidekicks.map((s) => (
                                         <StatProgressBar 
                                             key={s.label} 
                                             label={s.label} 
                                             percent={s.percent} 
                                             colorClass="bg-gradient-to-r from-blue-400 to-blue-600" 
                                         />
-                                    )) : <p className="text-sm text-gray-400">لا توجد بيانات كافية</p>}
+                                    ))}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Recent Activity Table (Short) */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                                <h3 className="text-xl font-serif text-gray-800">أحدث الحكايات</h3>
-                            </div>
-                            <table className="w-full text-right">
-                                <thead className="bg-gray-50 text-gray-500 font-sans text-sm">
-                                    <tr>
-                                        <th className="px-6 py-4">اسم الطفل</th>
-                                        <th className="px-6 py-4">العنوان</th>
-                                        <th className="px-6 py-4">التاريخ</th>
-                                        <th className="px-6 py-4">الحالة</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {stories.slice(0, 5).map((story) => (
-                                        <tr key={story.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 font-medium">{story.child}</td>
-                                            <td className="px-6 py-4 text-gray-600">{story.title}</td>
-                                            <td className="px-6 py-4 text-gray-500 text-sm">{story.date}</td>
-                                            <td className="px-6 py-4"><span className="text-green-600 text-xs font-bold bg-green-100 px-2 py-1 rounded-full">{story.status}</span></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
                     </motion.div>
                 )}
 

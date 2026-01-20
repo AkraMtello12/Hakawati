@@ -46,7 +46,7 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
 
   const moralInstruction = params.moral 
     ? `The moral of the story revolves around: ${params.moral}.` 
-    : "Choose a suitable positive moral for a child.";
+    : "Choose a suitable positive moral for a child (e.g., Honesty, Bravery, Kindness) and weave it into the story.";
 
   const genderInstruction = params.gender === 'girl' 
     ? "The main character is a little girl. Use feminine pronouns (هي/لها)."
@@ -89,8 +89,8 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
     1. **Story**: Exactly ${pageCount} pages (scenes).
     2. **Magic Dictionary**: Identify 3-4 difficult or dialect-heavy words used in the text. Provide their simplified definition in Arabic.
     3. **Moral Choice**: Create a scenario based on the story where the child must make a decision. This should happen conceptually in the middle of the story. Provide 2 options: one correct (leading to the moral) and one incorrect (but understandable mistake).
-    4. **Moral Name**: A short 1-2 word title for the badge (e.g., "الصدق", "الأمانة", "مساعدة الغير").
-    5. **Hakawati's Bundle (Proverb)**: A traditional Syrian or Arabic proverb (مثل شعبي) that matches the moral of the story perfectly. Include a very simple, cute explanation for a child.
+    4. **Moral Name**: A short 1-2 word title for the badge (e.g., "الصدق", "الأمانة", "مساعدة الغير"). This MUST be provided even if the user didn't request a specific moral.
+    5. **Hakawati's Bundle (Proverb)**: A traditional Syrian or Arabic proverb (مثل شعبي) that matches the moral of the story perfectly. Include a very simple, cute explanation for a child. This MUST be provided.
 
     For each page, provide:
     - 'text': The full story text for that page.
@@ -111,7 +111,7 @@ export const generateStoryText = async (params: StoryParams): Promise<GeneratedS
             type: Type.OBJECT,
             properties: {
               title: { type: Type.STRING },
-              moralName: { type: Type.STRING, description: "Short Arabic name of the moral for the badge" },
+              moralName: { type: Type.STRING, description: "Short Arabic name of the moral for the badge (e.g. الصدق)" },
               pages: {
                 type: Type.ARRAY,
                 items: {

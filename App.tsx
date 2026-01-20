@@ -10,7 +10,7 @@ import UserProfile from './components/UserProfile';
 import { AppState, StoryParams, GeneratedStory } from './types';
 import { generateStoryText } from './services/geminiService';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import * as Auth from 'firebase/auth';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const ADMIN_EMAIL = "akramtello12@gmail.com";
@@ -19,12 +19,12 @@ const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.AUTH); // Default to Auth
   const [story, setStory] = useState<GeneratedStory | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<Auth.User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   // Auth Listener & Routing Logic
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = Auth.onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
 
@@ -82,8 +82,9 @@ const App: React.FC = () => {
                     age: params.age,
                     gender: params.gender,
                     moral: params.moral,
-                    world: params.world, // For Dashboard Stats
-                    sidekick: params.sidekick // For Dashboard Stats
+                    world: params.world || null, // Convert undefined to null for Firestore
+                    sidekick: params.sidekick || null, // Convert undefined to null for Firestore
+                    length: params.length // SAVING LENGTH FOR DASHBOARD
                 }
             });
         } catch (dbError: any) {

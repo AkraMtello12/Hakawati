@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, Key, Chrome, ArrowLeft, Send } from 'lucide-react';
 import { auth, googleProvider } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
+import * as Auth from 'firebase/auth';
 
 interface AuthPageProps {
   onSuccess: () => void;
@@ -24,9 +24,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        await Auth.signInWithEmailAndPassword(auth, email, password);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        await Auth.createUserWithEmailAndPassword(auth, email, password);
         // Here you could save the "name" to user profile or Firestore in a later step
       }
       onSuccess();
@@ -45,7 +45,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const handleGoogleLogin = async () => {
     setError('');
     try {
-      await signInWithPopup(auth, googleProvider);
+      await Auth.signInWithPopup(auth, googleProvider);
       onSuccess();
     } catch (err: any) {
       console.error("Google Login Error:", err);
@@ -68,7 +68,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
       return;
     }
     try {
-        await sendPasswordResetEmail(auth, email);
+        await Auth.sendPasswordResetEmail(auth, email);
         alert('تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني');
         setShowForgot(false);
     } catch (err) {

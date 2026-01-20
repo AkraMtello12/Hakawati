@@ -221,20 +221,23 @@ const StoryEngine: React.FC<StoryEngineProps> = ({ onSubmit, onBack }) => {
                         <span className="text-sm text-gray-400 font-sans">(اختياري)</span>
                     </label>
                     <div className="flex gap-4 overflow-x-auto pb-2">
-                        {sidekicks.map((s) => (
-                            <button
-                                key={s.id}
-                                onClick={() => setSidekick(s === sidekicks.find(k => k.id === sidekick) ? '' : s.label)}
-                                className={`flex-1 min-w-[100px] p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                                    sidekick === s.label
-                                    ? 'border-h-gold bg-h-gold/10 shadow-lg'
-                                    : 'border-gray-200 bg-white hover:border-h-gold/50'
-                                }`}
-                            >
-                                <span className="text-4xl">{s.icon}</span>
-                                <span className="font-sans font-medium text-gray-700">{s.label}</span>
-                            </button>
-                        ))}
+                        {sidekicks.map((s) => {
+                            const isSelected = sidekick === s.id;
+                            return (
+                                <button
+                                    key={s.id}
+                                    onClick={() => setSidekick(isSelected ? '' : s.id)}
+                                    className={`flex-1 min-w-[100px] p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                                        isSelected
+                                        ? 'border-h-gold bg-h-gold/10 shadow-lg'
+                                        : 'border-gray-200 bg-white hover:border-h-gold/50'
+                                    }`}
+                                >
+                                    <span className="text-4xl">{s.icon}</span>
+                                    <span className="font-sans font-medium text-gray-700">{s.label}</span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
