@@ -325,7 +325,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
           </div>
           <div>
             <h1 className="font-serif text-xl text-h-gold">ديوان الحكواتي</h1>
-            <p className="text-xs text-gray-400 font-sans">لوحة الإدارة v2.0</p>
+            <p className="text-xs text-gray-400 font-sans">الإدارة</p>
           </div>
         </div>
 
