@@ -405,7 +405,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                 icon={Server} 
                                 label="حالة النظام" 
                                 value="ممتازة" 
-                                subText="متصل بـ Gemini 1.5 Pro"
+                                subText="متصل بـ Gemini 2.5 flash"
                                 colorClass="bg-green-50 text-green-600"
                                 loading={loading}
                             />
